@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import {
@@ -63,7 +63,8 @@ test("one observed page request makes Control Answers unsupported", async () => 
 });
 
 test("standalone bundle builds under 15 KB gzip", () => {
-  execFileSync(process.execPath, ["scripts/build-kit.mjs"]);
+  const build = spawnSync(process.execPath, ["scripts/build-kit.mjs"], { encoding: "utf8" });
+  assert.equal(build.status, 0, (build.stdout || "") + (build.stderr || ""));
   const bundle = readFileSync("public/neverheld/neverheld.min.js");
   assert.ok(gzipSync(bundle, { level: 9 }).length < 15 * 1024);
   assert.match(bundle.toString(), /NOPE/);
