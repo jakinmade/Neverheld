@@ -1,6 +1,6 @@
 # Release-readiness checklist
 
-Status at 27 Nov 2026, kit 0.3.0, commit `7c9f32c` or later (branch `build/phase-1-core-extraction`). ✅ done and tested · ⏳ waiting on CI · 🔒 John's decision · ⚖️ counsel or auditor
+Status at 27 Nov 2026, kit 0.3.1, commit `7c9f32c` or later (branch `build/phase-1-core-extraction`). ✅ done and tested · ⏳ waiting on CI · 🔒 John's decision · ⚖️ counsel or auditor
 
 ## Engineering
 | Item | Status |
@@ -22,7 +22,10 @@ Status at 27 Nov 2026, kit 0.3.0, commit `7c9f32c` or later (branch `build/phase
 | Network routes outside CSP measured per browser; claims bounded to what was measured | ✅ R10–R16; table in `SECURITY-BOUNDARIES.md` |
 | Counting starts at the enforcement boundary | ✅ R16 |
 | File opening time from the host API | ✅ R14 |
-| Declared-blocked workers give "supported if the declaration holds" | ✅ R13 (decided 27 Nov 2026) |
+| Any worker declaration gives "supported if the declaration holds"; no unconditional "supported" | ✅ R13, R18 |
+| fetch and XHR in progress at sealing detected; quiescence requirement documented | ✅ R20 |
+| Connection-Allowlist presence worded as an unverified indication | ✅ R19 |
+| All existing hints removed at sealing | ✅ R21 |
 | QR proof renderer in the buyer archive, no npm install, third-party licences included | ✅ R17 |
 | DNS prefetch measured | ⏳ needs a DNS test harness (not done) |
 | Self-contained demo host | ✅ `examples/nextjs-app` plus the plain HTML example |

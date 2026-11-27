@@ -43,7 +43,7 @@ test("six Control Answers are deterministic", async () => {
   const answers = await controlAnswers(evidence);
   assert.equal(answers.answers.length, 6);
   assert.deepEqual(answers.answers.map((item) => item.pack), CONTROL_RULESET.packs.map((pack) => pack.id));
-  assert.ok(answers.answers.every((item) => item.result === "supported"));
+  assert.ok(answers.answers.every((item) => item.result === "supported-if-declaration-holds"));
 });
 
 test("worker evidence not declared fails closed", async () => {
@@ -77,7 +77,7 @@ test("standalone bundle builds under 15 KB gzip", () => {
   assert.match(bundle.toString(), /Neverheld/);
 });
 
-test("kit version", () => assert.equal(SEAL_KIT_VERSION, "0.3.0"));
+test("kit version", () => assert.equal(SEAL_KIT_VERSION, "0.3.1"));
 
 // --- Round 2: regression tests for the second independent review (docs/REVIEW-FINDINGS.md) ---
 
@@ -96,20 +96,20 @@ test("R10 wording never claims the browser refused every network route", async (
 test("R11 a connection still open at sealing makes every answer unsupported", async () => {
   const proof = await buildProof({ status: status({ connectionsOpenAtSeal: 1 }), files, application, release, workers });
   assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "not-supported"));
-  assert.match(proof.body.controlAnswers.answers[0].answer, /still open/);
+  assert.match(proof.body.controlAnswers.answers[0].answer, /still in progress/);
 });
 
 test("R12 page-level blocks are reported, and the Connection-Allowlist state is stated", async () => {
   const proof = await buildProof({ status: status({ guardBlocked: 2, connectionAllowlist: "present" }), files, application, release, workers });
-  assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "supported"));
+  assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "supported-if-declaration-holds"));
   assert.match(proof.body.controlAnswers.answers[0].answer, /blocked or removed, inside the page, 2 WebRTC/);
-  assert.match(proof.body.controlAnswers.answers[0].answer, /Connection-Allowlist header[^.]*; this session did not test that header/);
+  assert.match(proof.body.controlAnswers.answers[0].answer, /returned a Connection-Allowlist header\. That is an unverified indication only/);
 });
 
 test("R13 a declared-blocked worker gives 'supported-if-declaration-holds', never plain 'supported'", async () => {
   const proof = await buildProof({ status: status(), files, application, release, workers: { declaration: "blocked", description: "declared" } });
   assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "supported-if-declaration-holds"));
-  assert.ok(proof.body.controlAnswers.answers.every((item) => item.answer.endsWith("this session did not test it.")));
+  assert.ok(proof.body.controlAnswers.answers.every((item) => item.answer.endsWith("this session did not test it, and workers started before NEVERHELD loaded cannot be seen.")));
   assert.equal((await verifyProof(JSON.parse(proofJson(proof)))).assurance.proofConsistent, true);
   const edited = JSON.parse(proofJson(proof));
   edited.body.controlAnswers.answers[0].result = "supported";
@@ -131,7 +131,7 @@ test("R1 a registered or controlling service worker makes every Control Answer u
 test("R2 a worker seen starting before the seal contradicts a 'no workers' declaration", async () => {
   const none = { declaration: "none" as const, description: "none" };
   const clean = await buildProof({ status: status(), files, application, release, workers: none });
-  assert.ok(clean.body.controlAnswers.answers.every((item) => item.result === "supported"));
+  assert.ok(clean.body.controlAnswers.answers.every((item) => item.result === "supported-if-declaration-holds"));
   const seen = await buildProof({ status: status({ workersStartedBeforeSeal: 1 }), files, application, release, workers: none });
   assert.ok(seen.body.controlAnswers.answers.every((item) => item.result === "not-supported"));
   assert.equal((await verifyProof(JSON.parse(proofJson(seen)))).assurance.proofConsistent, true);
@@ -272,4 +272,26 @@ test("release cold check validates an Ed25519 signed record and signed release t
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// --- Round 3: final review of 87471d1 ---
+
+test("R18 no worker declaration gives an unconditional 'supported'", async () => {
+  for (const declaration of ["none", "blocked"] as const) {
+    const proof = await buildProof({ status: status(), files, application, release, workers: { declaration, description: declaration } });
+    assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "supported-if-declaration-holds"), declaration);
+    assert.match(proof.body.controlAnswers.answers[0].answer, /workers started before NEVERHELD loaded cannot be seen\.$/);
+  }
+});
+
+test("R19 a Connection-Allowlist header seen by a HEAD request is described as an unverified indication", async () => {
+  const proof = await buildProof({ status: status({ connectionAllowlist: "present" }), files, application, release, workers });
+  const answer = proof.body.controlAnswers.answers[0].answer;
+  assert.match(answer, /unverified indication only/);
+  assert.doesNotMatch(answer, /which Chrome 152 and later enforce/);
+});
+
+test("R20 an in-progress request at sealing is named in the failure reason", async () => {
+  const proof = await buildProof({ status: status({ connectionsOpenAtSeal: 1 }), files, application, release, workers });
+  assert.match(proof.body.controlAnswers.answers[0].answer, /request or connection \(fetch, XHR/);
 });

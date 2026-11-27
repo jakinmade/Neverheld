@@ -166,6 +166,27 @@ export function observeConnections() {
   wrap("EventSource", false, (source) => source.readyState < 2);
   for (const name of ["RTCPeerConnection", "webkitRTCPeerConnection"]) wrap(name, true, (peer) => peer.signalingState !== "closed");
   wrap("WebTransport", true, (transport) => !transport.__neverheldClosed);
+  // fetch and XHR already in progress at sealing are not cancelled by the policy: track them too.
+  const originalFetch = window.fetch;
+  if (typeof originalFetch === "function") {
+    window.fetch = function (this: unknown, ...args: Parameters<typeof fetch>) {
+      let done = false;
+      tracked.push(() => !done);
+      const result = originalFetch.apply(this, args);
+      result.then(() => { done = true; }, () => { done = true; });
+      return result;
+    } as typeof fetch;
+  }
+  const xhr = typeof XMLHttpRequest === "function" ? XMLHttpRequest.prototype : undefined;
+  if (xhr) {
+    const send = xhr.send;
+    xhr.send = function (this: XMLHttpRequest, ...args: Parameters<XMLHttpRequest["send"]>) {
+      let done = false;
+      tracked.push(() => !done);
+      this.addEventListener("loadend", () => { done = true; });
+      return send.apply(this, args);
+    };
+  }
 }
 
 /** Connection and speculation hints that can reach the network outside the page's policy. */
@@ -177,8 +198,9 @@ function isNetworkHint(node: Node): node is Element {
 }
 /** Remove speculation rules and connection hints now and whenever they are added. */
 function guardHints() {
-  // Rules already in the page can still start prefetches later (for example on hover).
-  for (const node of document.querySelectorAll('script[type="speculationrules" i], link[rel~="prerender" i]')) node.remove();
+  // Every hint already in the page is removed at sealing: rules can start prefetches later (for
+  // example on hover). Removing a hint that already ran does not close a connection it opened.
+  for (const node of document.querySelectorAll('script[type="speculationrules" i], link[rel]')) if (isNetworkHint(node)) node.remove();
   new MutationObserver((records) => {
     for (const record of records) for (const node of record.addedNodes) {
       if (isNetworkHint(node)) { node.remove(); guardBlock(node.tagName === "SCRIPT" ? "speculation rules" : `link rel=${node.getAttribute("rel")}`); }

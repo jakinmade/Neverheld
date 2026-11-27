@@ -7,4 +7,4 @@ export type { Proof, ProofBody, ReleaseInfo, ReleaseSeal, VerifyOptions, VerifyR
 export { controlAnswers, rulesetFingerprint, CONTROL_RULESET } from "./control-answers";
 export type { ControlAnswers, ControlAnswer, Evidence, WorkerEvidence } from "./control-answers";
 export { canonicalJson, canonicalHash, sha256Hex } from "./jcs";
-export const SEAL_KIT_VERSION = "0.3.0";
+export const SEAL_KIT_VERSION = "0.3.1";

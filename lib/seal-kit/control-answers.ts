@@ -47,7 +47,7 @@ type Pack = {
 /** The ruleset. Changing any character changes its fingerprint; bump `version` when you do. */
 export const CONTROL_RULESET = {
   id: "seal-kit-control-answers",
-  version: "3.0.0",
+  version: "3.1.0",
   conditions: [
     { id: "sealed", oneOf: [true], failure: "the page was not sealed" },
     { id: "selfTestRefused", oneOf: [true], failure: "the seal self-test was not refused by the browser" },
@@ -56,7 +56,7 @@ export const CONTROL_RULESET = {
     { id: "serviceWorker", oneOf: ["none", "not-available"], failure: "a service worker was registered for or controlling the page, and a service worker is outside the page's rule" },
     { id: "workers", oneOf: ["declared-none", "declared-blocked"], failure: "background workers were not accounted for: the application owner did not declare them, or a worker was seen starting before the seal although none was declared" },
     { id: "filesOpenedBeforeSeal", oneOf: [0], failure: "a file was opened before the page was sealed" },
-    { id: "connectionsOpenAtSeal", oneOf: [0], failure: "a WebSocket, server-sent event, WebRTC or WebTransport connection opened before sealing was still open, and the page's rule does not close it" },
+    { id: "connectionsOpenAtSeal", oneOf: [0], failure: "a request or connection (fetch, XHR, WebSocket, server-sent event, WebRTC or WebTransport) started before sealing was still in progress, and the page's rule does not stop it" },
   ] as Condition[],
   workerNote: {
     "declared-none": "The application owner declared that the page starts no background workers, and none was seen starting before the seal after NEVERHELD loaded; workers started before NEVERHELD loaded cannot be seen by the page.",
@@ -67,11 +67,11 @@ export const CONTROL_RULESET = {
     nonZero: "NEVERHELD also blocked or removed, inside the page, {guardBlocked} WebRTC, WebTransport, speculative or connection-hint attempt(s) after sealing. That blocking is done by the page, not enforced by the browser: code written to get round it could do so, and Safari (WebKit) opens a preconnect connection before the hint can be removed.",
   },
   allowlistNote: {
-    present: "The page was served with a Connection-Allowlist header, which Chrome 152 and later enforce for WebRTC, DNS prefetch and navigations; this session did not test that header.",
+    present: "A request to the page's own address, made before sealing, returned a Connection-Allowlist header. That is an unverified indication only: it does not confirm that the original page response carried the header, that its value is restrictive, or that the browser enforced it.",
     absent: "The page was not served with a Connection-Allowlist header, so routes outside the Content Security Policy rely on NEVERHELD's page-level blocking.",
     "not-checked": "Whether the page was served with a Connection-Allowlist header was not checked.",
   } as Record<string, string>,
-  declarationNote: "This answer holds only if the application owner's declaration about its background workers is true; this session did not test it.",
+  declarationNote: "This answer holds only if the application owner's declaration about its background workers is true; this session did not test it, and workers started before NEVERHELD loaded cannot be seen.",
   filesNote: {
     zero: "No file fingerprints were recorded, so this proof does not show which files, if any, the page processed.",
     nonZero: "{files} file fingerprint(s) were recorded for files opened after sealing; this proof records only their SHA-256 fingerprints, never their content. Files the application opened by other means are not listed.",
@@ -81,7 +81,7 @@ export const CONTROL_RULESET = {
     nonZero: "The browser refused {blocked} attempt(s) to connect after sealing; none was sent.",
   },
   sessionEvidence:
-    "For this session, the browser enforced a Content Security Policy refusing the page's fetch, upload, beacon, WebSocket, server-sent event and form post connections and its image, script, style, font, frame and worker loads from any address; the seal self-test was refused, and the page made {requests} such requests after sealing. {blockedNote} {guardNote} {allowlistNote} No connection opened before sealing was still open when the seal took effect. No service worker was registered for or controlling the page. {workerNote} {filesNote}",
+    "For this session, the browser enforced a Content Security Policy refusing the page's fetch, upload, beacon, WebSocket, server-sent event and form post connections and its image, script, style, font, frame and worker loads from any address; the seal self-test was refused, and the page made {requests} such requests after sealing. {blockedNote} {guardNote} {allowlistNote} No fetch, XHR or long-lived connection started after NEVERHELD loaded was still in progress when the seal took effect; requests started before NEVERHELD loaded cannot be seen. No service worker was registered for or controlling the page. {workerNote} {filesNote}",
   notSupportedLead: "The evidence does not support this for this session, because {reason}. Treat the session as one in which data may have left the page.",
   commonLimits:
     "Not covered: WebRTC, DNS lookups and connection hints, which the Content Security Policy does not govern, except as far as NEVERHELD's page-level blocking reaches (it does not reach code using another frame's copy of WebRTC or a reference saved before NEVERHELD loaded); connections opened before NEVERHELD loaded; the whole tab being moved to another address, or a new window or tab being opened, by a link or by a script, which browsers offer no rule to stop and which could carry data in the address; data the page keeps in browser storage, which a later unsealed visit could send; data passed to other tabs or frames; browser extensions; and activity before sealing. The page wrote this evidence itself; it is not an independent audit.",
@@ -179,7 +179,8 @@ export async function controlAnswers(evidence: Evidence): Promise<ControlAnswers
   const notSupportedLead = fill(rules.notSupportedLead, { reason: failed?.failure ?? "" });
   const evidenceLines = rules.conditions.map((condition) => `${condition.id}=${String(evidence[condition.id])}`)
     .concat([`blockedAttemptsSinceSealing=${evidence.blockedAttemptsSinceSealing}`, `guardBlocked=${evidence.guardBlocked}`, `connectionAllowlist=${evidence.connectionAllowlist}`, `filesFingerprinted=${evidence.filesFingerprinted}`]);
-  const onDeclaration = !failed && evidence.workers === "declared-blocked";
+  // Any worker declaration (none or blocked) is the owner's and untested, so no answer is unconditional.
+  const onDeclaration = !failed && (evidence.workers === "declared-blocked" || evidence.workers === "declared-none");
   return {
     ruleset: rules.id,
     rulesetVersion: rules.version,

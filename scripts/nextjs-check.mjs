@@ -33,7 +33,7 @@ try {
     assert.equal(proof.body.seal.pageRequestsSinceSealing, 0, "Next.js made no request after sealing");
     assert.equal(proof.body.seal.blockedAttemptsSinceSealing, 0, "Next.js attempted nothing after sealing");
     assert.equal(proof.body.files[0].sha256, createHash("sha256").update(content).digest("hex"));
-    assert.ok(proof.body.controlAnswers.answers.every((answer) => answer.result === "supported"));
+    assert.ok(proof.body.controlAnswers.answers.every((answer) => answer.result === "supported-if-declaration-holds"));
     await browser.close();
     browser = undefined;
     console.log(`NEVERHELD Next.js checks (${name}): passed (seal after hydration, app still interactive, zero requests and blocked attempts, file fingerprint).`);

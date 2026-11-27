@@ -16,12 +16,12 @@
 | `seal.blockedAttemptsSinceSealing` | attempts the browser refused |
 | `seal.serviceWorker` | `none`, `registered`, `controlling` or `not-available` |
 | `seal.workers` | `{ declaration: none / blocked / not-declared, description, startedBeforeSeal, startedAfterSeal }` |
-| `seal.connectionsOpenAtSeal` | WebSocket, EventSource, WebRTC or WebTransport connections opened after NEVERHELD loaded and still open at sealing |
+| `seal.connectionsOpenAtSeal` | fetch and XHR requests, and WebSocket, EventSource, WebRTC or WebTransport connections, started after NEVERHELD loaded and still in progress at sealing |
 | `seal.pageGuardBlockedSinceSealing` | WebRTC, WebTransport, speculation or connection-hint attempts blocked or removed by the page (page-level, not browser-enforced) |
 | `seal.connectionAllowlist` | `present`, `absent` or `not-checked` (header presence only; never tested) |
 | `filesRecording` | `observed-and-host` (inputs and drops watched) or `host-only` |
 | `files[]` | `{ name, sha256, source: file-input / drop / host, openedAfterSeal }` |
-| `controlAnswers` | ruleset id, version 3.0.0, fingerprint, six answers; each `result` is `supported`, `supported-if-declaration-holds` or `not-supported` |
+| `controlAnswers` | ruleset id, version 3.1.0, fingerprint, six answers; each `result` is `supported`, `supported-if-declaration-holds` or `not-supported` |
 | `limits[]`, `createdAt`, `format`, `nature` | |
 
 Changes from `/2`: the three `seal.connection…` and `seal.pageGuardBlockedSinceSealing` fields; the sealing time is now the moment the policy goes in (the enforcement boundary); `openedAfterSeal` compares the file's opening time with it; and the third result value was added.
@@ -29,7 +29,7 @@ Changes from `/2`: the three `seal.connection…` and `seal.pageGuardBlockedSinc
 Changes from `/1`: `seal.workersNetwork` was replaced by `seal.workers` (an object) plus `seal.serviceWorker`; `filesRecording` was added, and each file gains `source` and `openedAfterSeal`.
 
 ## Control Answer conditions (all must hold for "supported")
-sealed; self-test refused; policy refuses every address; NOPE count 0; no service worker registered or in control; workers declared `none` (and none seen starting before the seal) or declared `blocked`; no file opened before sealing; no connection still open at sealing. If all hold and workers were declared `blocked` (untested), the result is `supported-if-declaration-holds`.
+sealed; self-test refused; policy refuses every address; NOPE count 0; no service worker registered or in control; workers declared `none` (and none seen starting before the seal) or declared `blocked`; no file opened before sealing; no connection still open at sealing. If all hold, the result is `supported-if-declaration-holds`, because every worker declaration is the owner's and untested. Ruleset 3.1.0 never gives an unconditional `supported`.
 
 ## Four assurance levels: never collapse them
 1. **Proof self-consistency.** The hash matches, and the Control Answers follow from the evidence. A deliberate editor can recompute both.

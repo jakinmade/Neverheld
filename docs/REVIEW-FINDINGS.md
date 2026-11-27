@@ -4,7 +4,7 @@
 **Reviewer:** Claude (Anthropic AI model), 27 Nov 2026, at John Akinmade's request. This is an AI-assisted engineering review, **not an independent security audit**.
 **Method:** code reading, then reproduction in a real browser before any change. Each confirmed finding has a regression test; the test IDs (R1 to R9) appear in `tests/seal-kit.test.ts`, `tests/release.test.ts`, `scripts/browser-check.mjs` and `scripts/nextjs-check.mjs`.
 
-Round 1 line numbers refer to `c250ca5`; round 2 line numbers refer to `2a5f411`.
+Round 1 line numbers refer to `c250ca5`, round 2 to `2a5f411`, round 3 to `87471d1`.
 
 ## Summary
 
@@ -115,3 +115,19 @@ Measured in CI (run linked in the readiness checklist):
 - These are stated in the proof limits, the Control Answer wording, `LIMITATIONS.md` and `SECURITY-BOUNDARIES.md`. The claim is now: *browser-enforced CSP for the listed routes, plus page-level blocking for WebRTC and hints with stated gaps*.
 
 **Decision for John (recorded in the readiness checklist):** whether a Chrome host must serve `Connection-Allowlist` before answers can be "supported". At present it is recorded only.
+
+---
+
+# Round 3: final review (of `87471d1`)
+
+All four technical findings were valid. Regression tests R18 to R21.
+
+| # | Severity | Finding | Status |
+|---|---|---|---|
+| 3.1 | High | `declared-none` still gave plain "supported", although workers started before NEVERHELD loaded cannot be seen | Every declaration gives `supported-if-declaration-holds`; no unconditional "supported" exists in ruleset 3.1.0 (R18) |
+| 3.2 | High | fetch and XHR already in progress at sealing were not assessed, and the policy does not cancel them | fetch and XHR tracked from load; any in progress at sealing makes answers "not supported"; quiescence requirement documented for requests started before NEVERHELD loaded (R20; browser scenario `/inflight`) |
+| 3.3 | Medium | The Connection-Allowlist HEAD check was worded as if the protection were active | Reworded as an unverified indication; it does not confirm the document response, the value or enforcement (R19) |
+| 3.4 | Medium | Only speculation rules and prerender hints were removed at sealing | All existing hints are removed at sealing (preconnect, dns-prefetch, preload, modulepreload, prefetch, prerender, speculation rules); it is documented that a hint that already ran may have opened a connection (R21) |
+| 3.5 | Housekeeping | Findings and PR description out of date | Round 3 recorded here; PR description updated at merge |
+
+Final position: this is an engineering release candidate with honest, bounded evidence. It is not an audited security product.

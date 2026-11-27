@@ -40,6 +40,10 @@ const scenarios = {
   // R16: an attempt made the instant the policy goes in (inside the self-test window) must be counted.
   "/boundary": `<script>new MutationObserver(()=>{if(document.querySelector("meta[data-browser-seal]")&&!window.fired){window.fired=true;fetch("https://boundary.invalid/x").catch(()=>{})}}).observe(document.head,{childList:true})</script>${tag}`,
   "/egress": `${tag}`,
+  // R20: a fetch still in progress at sealing (the load event does not wait for fetch).
+  "/inflight": `${tag}<script>fetch("/slow-response").catch(()=>{})</script>`,
+  // R21: hints already in the page are removed at sealing.
+  "/hints": `<link rel="preconnect" href="http://127.0.0.1:9/"><link rel="dns-prefetch" href="//example.invalid"><link rel="modulepreload" href="/none.js">${tag}`,
 };
 
 const exfil = [];
@@ -62,6 +66,7 @@ const server = createServer((request, response) => {
   if (request.url.startsWith("/exfil")) { exfil.push(request.url); response.end("ok"); return; }
   if (request.url === "/sw.js") return js('self.addEventListener("install",()=>self.skipWaiting());self.addEventListener("activate",e=>e.waitUntil(clients.claim()));self.onmessage=e=>fetch("/exfil-sw?d="+e.data);');
   if (request.url === "/w.js") return js('onmessage=e=>fetch("/exfil-worker?d="+e.data)');
+  if (request.url === "/slow-response") { setTimeout(() => response.end("late"), 3000); return; }
   if (request.url === "/slow.svg") { setTimeout(() => { response.writeHead(200, { "content-type": "image/svg+xml" }); response.end(svg); }, 400); return; }
   if (scenarios[request.url]) { response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }); response.end(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>t</title></head><body>${scenarios[request.url]}</body></html>`); return; }
   if (request.url === "/neverheld.min.js") {
@@ -222,7 +227,7 @@ await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen
   const fileProof = await proofFrom(filePage);
   assert.deepEqual(fileProof.body.files, [{ name: "sample.txt", openedAfterSeal: true, sha256: createHash("sha256").update(content).digest("hex"), source: "file-input" }]);
   assert.equal(fileProof.body.filesRecording, "observed-and-host");
-  assert.ok(fileProof.body.controlAnswers.answers.every((answer) => answer.result === "supported"), "clean declared session with a file is supported");
+  assert.ok(fileProof.body.controlAnswers.answers.every((answer) => answer.result === "supported-if-declaration-holds"), "clean declared session with a file is supported");
   await filePage.context().close();
 
   // R15: a connection still open at sealing is recorded and fails closed.
@@ -273,6 +278,18 @@ await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen
   mainUdp.close(); frameUdp.close();
   await egress.context().close();
 
+  // R20: a fetch still in progress at sealing is recorded and fails closed.
+  const inflight = await sealedPage("/inflight");
+  const inflightProof = await proofFrom(inflight);
+  assert.ok(inflightProof.body.seal.connectionsOpenAtSeal >= 1, "in-flight fetch recorded");
+  assert.ok(inflightProof.body.controlAnswers.answers.every((answer) => answer.result === "not-supported"));
+  await inflight.context().close();
+
+  // R21: hints already in the page are removed at sealing.
+  const hints = await sealedPage("/hints");
+  assert.equal(await hints.evaluate(() => document.querySelectorAll("link[rel]").length), 0, "existing preconnect, dns-prefetch and modulepreload hints removed");
+  await hints.context().close();
+
   // R16: counting starts with enforcement, so an attempt inside the self-test window is counted.
   const boundary = await sealedPage("/boundary");
   await boundary.waitForTimeout(300);
@@ -284,7 +301,7 @@ await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen
   await context.close();
   await browser.close();
   browser = undefined;
-  console.log(`NEVERHELD real-browser checks (${name}): passed (seal, blocked fetch, proof download, offline verifier, tamper rejection, fail-closed self-test, service worker, workers, load wait, file fingerprints, open connections, WebRTC and hint blocking, enforcement boundary).`);
+  console.log(`NEVERHELD real-browser checks (${name}): passed (seal, blocked fetch, proof download, offline verifier, tamper rejection, fail-closed self-test, service worker, workers, load wait, file fingerprints, open connections, in-flight requests, WebRTC and hint blocking, existing hints, enforcement boundary).`);
   }
 } finally {
   if (browser) await browser.close();

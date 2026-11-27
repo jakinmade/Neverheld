@@ -36,6 +36,7 @@ The page's Content Security Policy does not govern WebRTC, DNS prefetch or navig
 
 ## Things that must be true for a clean proof
 - Everything the app needs is loaded by the `load` event. Lazy chunks, late fonts and analytics loaded afterwards are refused (they show as "blocked attempts").
+- The app is quiet at sealing: no fetch, XHR, WebSocket, EventSource or WebRTC request or connection is still in progress. Ones that NEVERHELD can see make the answers "not supported"; ones started before it loaded cannot be seen, so this is your responsibility.
 - No WebSocket, EventSource or WebRTC connection is left open when the page seals. Open ones make the answers "not supported", because the policy does not close them.
 - No service worker is registered for the page's scope. If your app uses one, the answers will be "not supported", by design.
 - Workers are either not used, or started from `blob:` after sealing, or served with their own blocking policy and declared as `blocked`.
