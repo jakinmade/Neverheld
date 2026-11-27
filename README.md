@@ -24,4 +24,4 @@ The proof is written by the page and is not a signed session record. Its hash an
 Run `npm run check` for typecheck, tests and build-size validation. Never reuse EXEVVIA's release signing key; the public-key file is a placeholder pending a separate NEVERHELD keypair.
 
 
-The TypeScript source uses bundler module resolution because the browser bundle is produced by esbuild; published runtime imports are bundled into the single script file.
+The TypeScript source uses bundler module resolution because the browser bundle is produced by esbuild; published runtime imports are bundled into the single script file. Build output is checked against the 15 KB compressed target.
