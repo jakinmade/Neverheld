@@ -4,6 +4,7 @@
  * The host application remains responsible for any worker or iframe contexts.
  */
 import * as Neverheld from "./index";
+import qrcode from "qrcode-generator";
 type Global = typeof globalThis & { Neverheld?: typeof Neverheld };
 (globalThis as Global).Neverheld = Neverheld;
 
@@ -19,15 +20,17 @@ function save(name:string,content:string,type:string) {
 function htmlEscape(value:string) {
   return value.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c] as string));
 }
-function readable(proof:Neverheld.Proof) {
+function readable(proof:Neverheld.Proof, verifierUrl:string) {
   const b=proof.body;
+  const qr=qrcode(0,"M"); qr.addData(verifierUrl); qr.make();
+  const qrSvg=qr.createSvgTag(4,2);
   const answers=b.controlAnswers.answers.map(a=>`<section><h2>${htmlEscape(a.name)}</h2><p><b>${htmlEscape(a.result)}</b> · ${htmlEscape(a.question)}</p><p>${htmlEscape(a.answer)}</p><p class="muted">${htmlEscape(a.limits)}</p></section>`).join("");
-  return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NEVERHELD proof</title><style>body{font:15px/1.55 system-ui,sans-serif;max-width:780px;margin:32px auto;padding:0 18px;color:#17202c}h1{font-size:24px}h2{font-size:17px}section{border-top:1px solid #ddd;padding:8px 0}.muted{color:#596574;font-size:13px}code{overflow-wrap:anywhere}.notice{padding:12px;background:#f2f4f7}</style><body>
+  return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NEVERHELD proof</title><style>body{font:15px/1.55 system-ui,sans-serif;max-width:780px;margin:32px auto;padding:0 18px;color:#17202c}h1{font-size:24px}h2{font-size:17px}section{border-top:1px solid #ddd;padding:8px 0}.muted{color:#596574;font-size:13px}code{overflow-wrap:anywhere}.notice{padding:12px;background:#f2f4f7}.qr svg{width:180px;height:180px}</style><body>
 <h1>NEVERHELD session proof</h1><p class="notice">Written by the page itself. This is evidence of what the page observed after sealing, not a signed record of the session or an independent audit.</p>
 <p><b>Application:</b> ${htmlEscape(b.application.name)} ${htmlEscape(b.application.version)}<br><b>Release:</b> ${htmlEscape(b.release.id)}<br><b>Sealed:</b> ${htmlEscape(b.seal.sealedAt)} UTC</p>
 <p><b>NOPE count:</b> ${b.seal.pageRequestsSinceSealing}<br><b>Blocked attempts:</b> ${b.seal.blockedAttemptsSinceSealing}<br><b>Self-test:</b> ${htmlEscape(b.seal.selfTest)}</p>
 <h2>Files (fingerprints only)</h2><ul>${b.files.length?b.files.map(f=>`<li>${htmlEscape(f.name)} <code>${htmlEscape(f.sha256)}</code></li>`).join(""):"<li>No file fingerprints supplied by this one-tag installation.</li>"}</ul><h2>Control Answers</h2>${answers}
-<h2>Limits</h2><ul>${b.limits.map(x=>`<li>${htmlEscape(x)}</li>`).join("")}</ul><p><b>Proof hash:</b><br><code>${proof.proofHash.value}</code></p>
+<h2>Limits</h2><ul>${b.limits.map(x=>`<li>${htmlEscape(x)}</li>`).join("")}</ul><h2>Check this proof</h2><p>Scan the QR code to open the verifier with this proof hash pre-filled. The verifier itself runs locally and makes no network requests.</p><div class="qr">${qrSvg}</div><p><b>Proof hash:</b><br><code>${proof.proofHash.value}</code></p>
 <p class="muted">A hash in the same file is not proof against deliberate rewriting. The signed release authenticates released code, not the session.</p></body></html>`;
 }
 async function autoSeal(tag:HTMLScriptElement) {
@@ -63,7 +66,7 @@ async function autoSeal(tag:HTMLScriptElement) {
     open.addEventListener("click",()=>{const s=Neverheld.getSealStatus();desc.textContent=`Sealed at ${s.sealedAtTime||s.sealedAtEpoch}; page requests ${s.requests}; blocked attempts ${s.blocked}; worker evidence: ${workers.network}.`;panel.showModal();});
     close.addEventListener("click",()=>panel.close());
     json.addEventListener("click",async()=>{try{const p=await makeProof();save("NEVERHELD-proof.json",Neverheld.proofJson(p),"application/json");}catch(e){desc.textContent=String(e);}});
-    html.addEventListener("click",async()=>{try{const p=await makeProof();save("NEVERHELD-proof.html",readable(p),"text/html");}catch(e){desc.textContent=String(e);}});
+    html.addEventListener("click",async()=>{try{const p=await makeProof();const url=new URL("verify.html",tag.src||location.href);url.hash=`p=${p.proofHash.value}`;save("NEVERHELD-proof.html",readable(p,url.toString()),"text/html");}catch(e){desc.textContent=String(e);}});
     verify.addEventListener("click",()=>window.open(new URL("verify.html",tag.src||location.href).toString(),"_blank","noopener,noreferrer"));
     Neverheld.subscribeToSeal(s=>{count.textContent=`NEVERHELD · NOPE: ${s.requests} · Blocked: ${s.blocked}`;if(s.requests>0)bar.style.background="#7f1d1d";});
   }catch{update(Neverheld.getSealStatus());unsubscribe();}
