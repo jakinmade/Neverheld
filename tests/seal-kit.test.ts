@@ -15,12 +15,13 @@ import {
 const status = (change: Partial<SealStatus> = {}): SealStatus => ({
   state: "sealed", sealedAt: 1000, sealedAtEpoch: Date.UTC(2026, 10, 27, 18),
   sealedAtTime: "18:00", policy: sealPolicy(), requests: 0, blocked: 0, log: [],
-  workersStartedBeforeSeal: 0, workersStartedAfterSeal: 0, serviceWorker: "none", ...change,
+  workersStartedBeforeSeal: 0, workersStartedAfterSeal: 0, serviceWorker: "none",
+  connectionsOpenAtSeal: 0, guardBlocked: 0, connectionAllowlist: "not-checked", ...change,
 });
 const files = [{ name: "sample.pdf", sha256: "a".repeat(64), source: "host" as const, openedAfterSeal: true }];
 const application = { name: "test", version: "0.1.0", commit: "test" };
 const release = { id: "test-release", manifestSha256: "b".repeat(64), manifestFiles: 2 };
-const workers = { declaration: "blocked" as const, description: "Worker restrictions declared for test only." };
+const workers = { declaration: "none" as const, description: "Worker restrictions declared for test only." };
 
 test("production seal policy permits no network address", () => {
   const policy = sealPolicy();
@@ -76,7 +77,44 @@ test("standalone bundle builds under 15 KB gzip", () => {
   assert.match(bundle.toString(), /Neverheld/);
 });
 
-test("kit version", () => assert.equal(SEAL_KIT_VERSION, "0.2.0"));
+test("kit version", () => assert.equal(SEAL_KIT_VERSION, "0.3.0"));
+
+// --- Round 2: regression tests for the second independent review (docs/REVIEW-FINDINGS.md) ---
+
+test("R10 wording never claims the browser refused every network route", async () => {
+  const proof = await buildProof({ status: status(), files, application, release, workers });
+  const text = JSON.stringify(proof.body.controlAnswers);
+  assert.doesNotMatch(text, /sent nothing by network connection or resource request/);
+  assert.doesNotMatch(text, /network connections and resource requests[^"]*refused by the browser/);
+  assert.match(text, /not enforced by the browser/);
+  assert.match(text, /WebRTC, DNS lookups and connection hints, which the Content Security Policy does not govern/);
+  assert.match(JSON.stringify(PROOF_LIMITS), /Connection-Allowlist/);
+  spawnSync(process.execPath, ["scripts/build-kit.mjs"], { encoding: "utf8" });
+  assert.doesNotMatch(readFileSync("public/neverheld/neverheld.min.js", "utf8"), /Not one packet escaped/i);
+});
+
+test("R11 a connection still open at sealing makes every answer unsupported", async () => {
+  const proof = await buildProof({ status: status({ connectionsOpenAtSeal: 1 }), files, application, release, workers });
+  assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "not-supported"));
+  assert.match(proof.body.controlAnswers.answers[0].answer, /still open/);
+});
+
+test("R12 page-level blocks are reported, and the Connection-Allowlist state is stated", async () => {
+  const proof = await buildProof({ status: status({ guardBlocked: 2, connectionAllowlist: "present" }), files, application, release, workers });
+  assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "supported"));
+  assert.match(proof.body.controlAnswers.answers[0].answer, /blocked, inside the page, 2 WebRTC/);
+  assert.match(proof.body.controlAnswers.answers[0].answer, /Connection-Allowlist header[^.]*; this session did not test that header/);
+});
+
+test("R13 a declared-blocked worker gives 'supported-if-declaration-holds', never plain 'supported'", async () => {
+  const proof = await buildProof({ status: status(), files, application, release, workers: { declaration: "blocked", description: "declared" } });
+  assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "supported-if-declaration-holds"));
+  assert.ok(proof.body.controlAnswers.answers.every((item) => item.answer.endsWith("this session did not test it.")));
+  assert.equal((await verifyProof(JSON.parse(proofJson(proof)))).assurance.proofConsistent, true);
+  const edited = JSON.parse(proofJson(proof));
+  edited.body.controlAnswers.answers[0].result = "supported";
+  assert.equal((await verifyProof(edited)).valid, false, "upgrading the result by hand is detected");
+});
 
 // --- Regression tests for the Nov 2026 independent review (docs/REVIEW-FINDINGS.md) ---
 
@@ -102,7 +140,7 @@ test("R2 a worker seen starting before the seal contradicts a 'no workers' decla
 test("R3 worker wording never claims a test that did not happen", async () => {
   const text = JSON.stringify(CONTROL_RULESET);
   assert.doesNotMatch(text, /live seal check does/);
-  const proof = await buildProof({ status: status(), files, application, release, workers });
+  const proof = await buildProof({ status: status(), files, application, release, workers: { declaration: "blocked", description: "declared" } });
   assert.match(proof.body.controlAnswers.answers[0].answer, /declared[^.]*; this session did not test that declaration/);
 });
 

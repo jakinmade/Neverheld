@@ -19,7 +19,7 @@ import type { SealStatus, ServiceWorkerState } from "./seal";
 import type { FileRecord } from "./files";
 
 /** Format 2: worker, service worker and file evidence are recorded separately (Nov 2026). */
-export const PROOF_FORMAT = "seal-kit-proof/2";
+export const PROOF_FORMAT = "seal-kit-proof/3";
 
 /** What the application owner says about its background workers. Never tested by the session. */
 export type WorkerDeclaration = "none" | "blocked" | "not-declared";
@@ -46,6 +46,9 @@ export type ProofBody = {
     blockedAttemptsSinceSealing: number;
     workers: { declaration: WorkerDeclaration; description: string; startedBeforeSeal: number; startedAfterSeal: number };
     serviceWorker: ServiceWorkerState;
+    connectionsOpenAtSeal: number;
+    pageGuardBlockedSinceSealing: number;
+    connectionAllowlist: "present" | "absent" | "not-checked";
   };
   /** How files came to be listed: observed inputs and drops, and/or the host's own records. */
   filesRecording: "observed-and-host" | "host-only";
@@ -64,6 +67,7 @@ export const PROOF_LIMITS = [
   "Anything done in another browser tab is not covered.",
   "The proof hash shows only that the proof matches itself. Anyone can edit a proof and recompute the hash; compare it with a copy kept separately. It is not a signature.",
   "The proof does not show that the session took place. A signed release seal, when one is supplied, authenticates the released code it names, not the session.",
+  "WebRTC, DNS lookups and connection hints are outside the browser's Content Security Policy. NEVERHELD blocks them inside the page after sealing, which code written to get round it (for example through another frame) could evade. A Connection-Allowlist response header, served by the application, is the browser-enforced control in Chrome 152 and later.",
   "Workers started before NEVERHELD loaded cannot be seen by the page; for those the proof relies on the application owner's declaration, which the session does not test.",
   "Only files chosen in a file input, dropped on the page or recorded by the application are listed.",
   "The Control Answers are evidence for counsel, auditors and reviewers. They are not legal, audit or compliance opinions.",
@@ -112,6 +116,9 @@ export function evidenceFromBody(body: Pick<ProofBody, "seal" | "files">): Evide
     serviceWorker: body.seal.serviceWorker,
     filesFingerprinted: body.files.filter((file) => file.openedAfterSeal).length,
     filesOpenedBeforeSeal: body.files.filter((file) => !file.openedAfterSeal).length,
+    connectionsOpenAtSeal: body.seal.connectionsOpenAtSeal,
+    guardBlocked: body.seal.pageGuardBlockedSinceSealing,
+    connectionAllowlist: body.seal.connectionAllowlist,
   };
 }
 
@@ -140,6 +147,9 @@ export async function buildProof(input: BuildProofInput): Promise<Proof> {
     blockedAttemptsSinceSealing: status.blocked,
     workers: { declaration: input.workers.declaration, description: input.workers.description, startedBeforeSeal: status.workersStartedBeforeSeal, startedAfterSeal: status.workersStartedAfterSeal },
     serviceWorker: status.serviceWorker ?? "registered",
+    connectionsOpenAtSeal: status.connectionsOpenAtSeal,
+    pageGuardBlockedSinceSealing: status.guardBlocked,
+    connectionAllowlist: status.connectionAllowlist,
   };
   const files = input.files.map((file) => ({ name: file.name, sha256: file.sha256, source: file.source, openedAfterSeal: file.openedAfterSeal }));
   const body: ProofBody = {

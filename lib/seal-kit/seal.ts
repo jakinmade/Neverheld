@@ -82,12 +82,20 @@ export type SealStatus = {
   workersStartedAfterSeal: number;
   /** Service worker state at sealing, kept at its worst value seen since. */
   serviceWorker?: ServiceWorkerState;
+  /** WebSocket, EventSource, WebRTC or WebTransport connections opened since NEVERHELD loaded and still open when the seal took effect. */
+  connectionsOpenAtSeal: number;
+  /** Attempts NEVERHELD blocked inside the page after sealing (WebRTC, WebTransport, speculative or connection hints). Page-level, not browser-enforced. */
+  guardBlocked: number;
+  /** Whether the page was served with a Connection-Allowlist header (checked only on request). */
+  connectionAllowlist: "present" | "absent" | "not-checked";
   error?: string;
 };
 
 const PROBE_PATH = "/seal-self-test";
 
-let status: SealStatus = { state: "open", requests: 0, blocked: 0, log: [], workersStartedBeforeSeal: 0, workersStartedAfterSeal: 0 };
+let status: SealStatus = { state: "open", requests: 0, blocked: 0, log: [], workersStartedBeforeSeal: 0, workersStartedAfterSeal: 0, connectionsOpenAtSeal: 0, guardBlocked: 0, connectionAllowlist: "not-checked" };
+/** True from the moment the policy is placed in the page (the enforcement boundary). */
+let enforcing = false;
 const listeners = new Set<(value: SealStatus) => void>();
 let sealing: Promise<void> | undefined;
 
@@ -117,6 +125,77 @@ async function serviceWorkerState(): Promise<ServiceWorkerState> {
     return (await container.getRegistrations()).length > 0 ? "registered" : "none";
   } catch {
     return "registered"; // unknown is treated as the unsafe answer
+  }
+}
+
+function guardBlock(what: string) {
+  update({ guardBlocked: status.guardBlocked + 1, log: [...status.log, `Blocked in page: ${what}`].slice(-20) });
+}
+
+const tracked: Array<() => boolean> = [];
+let observingConnections = false;
+/**
+ * Track long-lived connections the page opens from now on, and block in the page, once sealed,
+ * the connection kinds the browser's policy does not govern (WebRTC) or may not govern
+ * (WebTransport). This is page-level blocking: code holding a reference saved before NEVERHELD
+ * loaded, or using another frame's copy, is not stopped by it. A connection opened before
+ * sealing and still open at sealing is recorded, because the policy does not close it.
+ */
+export function observeConnections() {
+  if (observingConnections || typeof window === "undefined") return;
+  observingConnections = true;
+  const target = window as unknown as Record<string, unknown>;
+  const wrap = (name: string, blockAfterSeal: boolean, isOpen: (item: any) => boolean) => {
+    const Original = target[name];
+    if (typeof Original !== "function") return;
+    target[name] = new Proxy(Original, {
+      construct(original, args, newTarget) {
+        if (blockAfterSeal && enforcing) {
+          guardBlock(name);
+          throw new DOMException(`${name} is blocked on this sealed page by NEVERHELD.`, "SecurityError");
+        }
+        const item = Reflect.construct(original as new (...a: unknown[]) => object, args, newTarget);
+        const closed = (item as { closed?: Promise<unknown> }).closed;
+        if (closed?.then) closed.then(() => { (item as Record<string, unknown>).__neverheldClosed = true; }, () => { (item as Record<string, unknown>).__neverheldClosed = true; });
+        tracked.push(() => isOpen(item));
+        return item;
+      },
+    });
+  };
+  wrap("WebSocket", false, (socket) => socket.readyState < 2);
+  wrap("EventSource", false, (source) => source.readyState < 2);
+  for (const name of ["RTCPeerConnection", "webkitRTCPeerConnection"]) wrap(name, true, (peer) => peer.signalingState !== "closed");
+  wrap("WebTransport", true, (transport) => !transport.__neverheldClosed);
+}
+
+/** Connection and speculation hints that can reach the network outside the page's policy. */
+const HINT = /\b(preconnect|dns-prefetch|prerender|prefetch|preload|modulepreload)\b/i;
+function isNetworkHint(node: Node): node is Element {
+  if (!(node instanceof Element)) return false;
+  if (node.tagName === "LINK") return HINT.test(node.getAttribute("rel") || "");
+  return node.tagName === "SCRIPT" && (node.getAttribute("type") || "").trim().toLowerCase() === "speculationrules";
+}
+/** Remove speculation rules and connection hints now and whenever they are added. */
+function guardHints() {
+  // Rules already in the page can still start prefetches later (for example on hover).
+  for (const node of document.querySelectorAll('script[type="speculationrules" i], link[rel~="prerender" i]')) node.remove();
+  new MutationObserver((records) => {
+    for (const record of records) for (const node of record.addedNodes) {
+      if (isNetworkHint(node)) { node.remove(); guardBlock(node.tagName === "SCRIPT" ? "speculation rules" : `link rel=${node.getAttribute("rel")}`); }
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true });
+}
+
+/** Read the page's own Connection-Allowlist response header (one request, before sealing). */
+export async function checkConnectionAllowlist(): Promise<"present" | "absent"> {
+  try {
+    const response = await fetch(location.href, { method: "HEAD", cache: "no-store", credentials: "same-origin" });
+    const value = response.headers.get("connection-allowlist") ? "present" : "absent";
+    update({ connectionAllowlist: value });
+    return value;
+  } catch {
+    update({ connectionAllowlist: "absent" });
+    return "absent";
   }
 }
 
@@ -230,25 +309,35 @@ function startCounting(sealedAt: number) {
 export function sealPage(prepare: () => Promise<void> = async () => {}, options: SealOptions = {}): Promise<void> {
   if (sealing) return sealing;
   observeWorkers();
+  observeConnections();
   sealing = (async () => {
     update({ state: "sealing", error: undefined });
     try {
       await prepare();
       await loadDeclaredFonts();
       const policy = sealPolicy(options);
+      const prefetchOff = document.createElement("meta");
+      prefetchOff.httpEquiv = "x-dns-prefetch-control";
+      prefetchOff.content = "off";
+      document.head.appendChild(prefetchOff);
       const meta = document.createElement("meta");
       meta.httpEquiv = "Content-Security-Policy";
       meta.content = policy;
       meta.setAttribute("data-browser-seal", "");
+      // The enforcement boundary: counting and guards start in the same task the policy goes in.
+      const sealedAt = performance.now();
+      const sealedAtEpoch = Date.now();
+      startCounting(sealedAt);
       document.head.appendChild(meta);
+      enforcing = true;
+      update({ connectionsOpenAtSeal: tracked.filter((isOpen) => isOpen()).length });
+      guardHints();
       if (!(await selfTest())) {
         throw new Error("This browser did not apply the seal, so no file has been opened. Please use an up-to-date Chrome, Edge, Firefox or Safari.");
       }
       const serviceWorker = worse(status.serviceWorker, await serviceWorkerState());
-      const sealedAt = performance.now();
-      startCounting(sealedAt);
       keepLinksInNewTabs();
-      update({ state: "sealed", sealedAt, policy, serviceWorker, sealedAtEpoch: Date.now(), sealedAtTime: new Date().toLocaleTimeString("en-GB") });
+      update({ state: "sealed", sealedAt, policy, serviceWorker, sealedAtEpoch, sealedAtTime: new Date(sealedAtEpoch).toLocaleTimeString("en-GB") });
     } catch (error) {
       update({ state: "failed", error: error instanceof Error ? error.message : "The page could not be sealed." });
       throw error;

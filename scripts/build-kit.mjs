@@ -15,7 +15,7 @@ const common = {
 };
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const kit = await build({ ...common, entryPoints: [join(root, "lib/seal-kit/script-tag.ts")] });
-const code = `/*! NEVERHELD ${pkg.version} | Not one packet escaped */\n${kit.outputFiles[0].text}`;
+const code = `/*! NEVERHELD ${pkg.version} | Browser-side network restriction and session evidence. See LICENSE and docs/LIMITATIONS.md */\n${kit.outputFiles[0].text}`;
 writeFileSync(out("neverheld.min.js"), code);
 
 const key = JSON.parse(readFileSync(join(root, "release/release-public-key.json"), "utf8"));

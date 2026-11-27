@@ -1,4 +1,4 @@
-export { sealPage, sealPolicy, getSealStatus, subscribeToSeal, canRetrySeal, resetFailedSeal, observeWorkers } from "./seal";
+export { sealPage, sealPolicy, getSealStatus, subscribeToSeal, canRetrySeal, resetFailedSeal, observeWorkers, observeConnections, checkConnectionAllowlist } from "./seal";
 export type { SealOptions, SealState, SealStatus, ServiceWorkerState } from "./seal";
 export { recordFile, recordFingerprint, observeFileInputs, recordedFiles } from "./files";
 export type { FileRecord, FileSource } from "./files";
@@ -7,4 +7,4 @@ export type { Proof, ProofBody, ReleaseInfo, ReleaseSeal, VerifyOptions, VerifyR
 export { controlAnswers, rulesetFingerprint, CONTROL_RULESET } from "./control-answers";
 export type { ControlAnswers, ControlAnswer, Evidence, WorkerEvidence } from "./control-answers";
 export { canonicalJson, canonicalHash, sha256Hex } from "./jcs";
-export const SEAL_KIT_VERSION = "0.2.0";
+export const SEAL_KIT_VERSION = "0.3.0";

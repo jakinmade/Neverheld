@@ -4,7 +4,8 @@
  * while loading is fetched first. Anything the application loads later (lazy chunks, fonts used
  * only later) must be loaded before then, or it will be refused once sealed.
  * Attributes: data-workers-network="none" | "blocked" (the owner's declaration, not tested),
- * data-observe-files="off" to stop fingerprinting file inputs and drops.
+ * data-observe-files="off" to stop fingerprinting file inputs and drops,
+ * data-connection-allowlist="check" to record whether the page is served with that header.
  */
 import * as Neverheld from "./index";
 type Global = typeof globalThis & { Neverheld?: typeof Neverheld };
@@ -29,7 +30,7 @@ function readable(proof:Neverheld.Proof) {
 <h1>NEVERHELD session proof</h1><p class="notice">Written by the page itself. This is evidence of what the page observed after sealing, not a signed record of the session or an independent audit.</p>
 <p><b>Application:</b> ${htmlEscape(b.application.name)} ${htmlEscape(b.application.version)}<br><b>Release:</b> ${htmlEscape(b.release.id)}<br><b>Sealed:</b> ${htmlEscape(b.seal.sealedAt)} UTC</p>
 <p><b>NOPE count:</b> ${b.seal.pageRequestsSinceSealing}<br><b>Blocked attempts:</b> ${b.seal.blockedAttemptsSinceSealing}<br><b>Self-test:</b> ${htmlEscape(b.seal.selfTest)}</p>
-<p><b>Service worker:</b> ${htmlEscape(b.seal.serviceWorker)}<br><b>Workers:</b> declaration ${htmlEscape(b.seal.workers.declaration)}; started before seal ${b.seal.workers.startedBeforeSeal}, after seal ${b.seal.workers.startedAfterSeal}</p>
+<p><b>Service worker:</b> ${htmlEscape(b.seal.serviceWorker)}<br><b>Connections open at seal:</b> ${b.seal.connectionsOpenAtSeal}<br><b>Blocked in page (WebRTC, hints):</b> ${b.seal.pageGuardBlockedSinceSealing}<br><b>Connection-Allowlist header:</b> ${htmlEscape(b.seal.connectionAllowlist)}<br><b>Workers:</b> declaration ${htmlEscape(b.seal.workers.declaration)}; started before seal ${b.seal.workers.startedBeforeSeal}, after seal ${b.seal.workers.startedAfterSeal}</p>
 <h2>Files (fingerprints only)</h2><ul>${b.files.length?b.files.map(f=>`<li>${htmlEscape(f.name)} <code>${htmlEscape(f.sha256)}</code> (${htmlEscape(f.source)}${f.openedAfterSeal?"":", opened before sealing"})</li>`).join(""):"<li>No file fingerprints were recorded. This does not show whether files were processed.</li>"}</ul><h2>Control Answers</h2>${answers}
 <h2>Limits</h2><ul>${b.limits.map(x=>`<li>${htmlEscape(x)}</li>`).join("")}</ul><p><b>Proof hash:</b><br><code>${proof.proofHash.value}</code></p>
 <p class="muted">A hash in the same file is not proof against deliberate rewriting. The signed release authenticates released code, not the session.</p></body></html>`;
@@ -37,6 +38,7 @@ function readable(proof:Neverheld.Proof) {
 const ready=(event:"DOMContentLoaded"|"load",done:boolean)=>done?Promise.resolve():new Promise(resolve=>window.addEventListener(event,resolve,{once:true}));
 async function autoSeal(tag:HTMLScriptElement) {
   Neverheld.observeWorkers();
+  Neverheld.observeConnections();
   const observeFiles=tag.dataset.observeFiles!=="off";
   if(observeFiles) Neverheld.observeFileInputs();
   await ready("DOMContentLoaded",document.readyState!=="loading");
@@ -60,12 +62,12 @@ async function autoSeal(tag:HTMLScriptElement) {
   };
   const unsubscribe=Neverheld.subscribeToSeal(update);
   try{
-    await Neverheld.sealPage(async()=>{await ready("load",document.readyState==="complete");if(tag.dataset.releaseManifestUrl) release=await Neverheld.fetchReleaseInfo(new URL(tag.dataset.releaseManifestUrl,location.href).toString(),releaseId);});
+    await Neverheld.sealPage(async()=>{await ready("load",document.readyState==="complete");if(tag.dataset.connectionAllowlist==="check")await Neverheld.checkConnectionAllowlist();if(tag.dataset.releaseManifestUrl) release=await Neverheld.fetchReleaseInfo(new URL(tag.dataset.releaseManifestUrl,location.href).toString(),releaseId);});
     gate.close();gate.remove();if(document.body) document.body.inert=false;
     const bar=el("div"),count=el("span","NEVERHELD · NOPE: 0"),open=el("button","Proof and checks");
     applyStyle(bar,{position:"fixed",top:"10px",right:"10px",zIndex:"2147483646",display:"flex",gap:"10px",alignItems:"center",background:"#102a24",color:"white",padding:"8px 12px",border:"1px solid #4e8e79",borderRadius:"10px",font:"12px system-ui,sans-serif",boxShadow:"0 4px 18px #0002"});
     applyStyle(open,{background:"white",color:"#102a24",border:"0",borderRadius:"6px",padding:"5px 8px",cursor:"pointer"});bar.append(count,open);(document.body ?? document.documentElement).appendChild(bar);
-    const panel=el("dialog"),panelTitle=el("h2","NEVERHELD session evidence"),desc=el("p"),caveat=el("p","This records this page after sealing. It does not cover activity before sealing, existing frames, extensions, other tabs, new windows or whole-tab navigation. A service worker or undeclared worker makes the Control Answers not supported.");
+    const panel=el("dialog"),panelTitle=el("h2","NEVERHELD session evidence"),desc=el("p"),caveat=el("p","This records this page after sealing. WebRTC and connection hints are blocked by the page itself, not the browser. It does not cover activity before sealing, existing frames, extensions, other tabs, new windows or whole-tab navigation. A service worker or undeclared worker makes the Control Answers not supported.");
     const json=el("button","Download JSON proof"),html=el("button","Download readable proof"),verify=el("button","Open verifier page"),close=el("button","Close");
     applyStyle(panel,{width:"min(650px,calc(100vw - 36px))",maxHeight:"80vh",overflow:"auto",border:"1px solid #cbd5e1",borderRadius:"14px",padding:"24px",font:"14px/1.5 system-ui,sans-serif",color:"#17202c"});
     for(const button of [json,html,verify,close]) applyStyle(button,{margin:"5px 8px 5px 0",padding:"8px 10px",border:"1px solid #94a3b8",borderRadius:"6px",cursor:"pointer"});
