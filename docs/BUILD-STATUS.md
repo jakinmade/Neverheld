@@ -9,6 +9,8 @@ Source baseline: EXEVVIA `main`, commit `17d4e4f90857eb63cf528f92567f8bd3322516e
 - Dependency-free browser bundle.
 - Opt-in `data-auto-seal` script-tag installation with a status/NOPE display.
 - Self-contained offline proof verifier and plain HTML example.
+- Optional QR proof-pack renderer that packages the JSON proof, readable HTML proof and offline verifier together.
+- Command-line proof verifier and hash/signature cold-check scripts.
 - Tests for restrictive policy, deterministic six-pack answers, worker evidence fail-closed behaviour, proof tamper detection and bundle size.
 - Explicit security boundary documentation.
 
