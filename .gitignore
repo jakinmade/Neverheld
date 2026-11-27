@@ -1,0 +1,6 @@
+node_modules/
+public/neverheld/neverheld.min.js
+public/neverheld/verify.html
+public/neverheld/example.html
+*.tsbuildinfo
+dist/

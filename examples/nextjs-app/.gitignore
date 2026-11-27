@@ -1,0 +1,4 @@
+node_modules/
+.next/
+public/neverheld/
+next-env.d.ts

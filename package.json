@@ -1,0 +1,36 @@
+{
+  "name": "@neverheld/browser-kit",
+  "version": "0.3.1",
+  "private": true,
+  "type": "module",
+  "description": "Browser-side network enforcement and offline-verifiable session evidence.",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "build": "node scripts/build-kit.mjs",
+    "build:check": "npm run build && node scripts/check-build.mjs",
+    "test": "tsx --test tests/*.test.ts",
+    "test:browser": "npm run build && node scripts/browser-check.mjs",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test && npm run build:check && npm run test:browser",
+    "render:proof": "tsx scripts/render-proof.ts",
+    "verify:proof": "tsx scripts/verify-proof.mts",
+    "coldcheck:proof": "bash scripts/coldcheck-proof.sh",
+    "coldcheck:release": "bash scripts/coldcheck-release.sh",
+    "pre-render:proof": "npm run build",
+    "test:nextjs": "npm run build && cd examples/nextjs-app && npm ci --no-audit --no-fund && npm run build && cd ../.. && node scripts/nextjs-check.mjs",
+    "package": "npm run build && node scripts/package-release.mjs",
+    "repro:check": "node scripts/repro-check.mjs",
+    "sign:release": "tsx scripts/sign-release.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "esbuild": "0.28.2",
+    "playwright": "1.56.1",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2",
+    "jszip": "3.10.1",
+    "qrcode-generator": "2.0.4"
+  }
+}
