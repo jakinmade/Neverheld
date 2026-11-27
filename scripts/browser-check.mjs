@@ -119,7 +119,8 @@ try {
   await verifyPage.goto(pathToFileURL(resolve(verifierPath)).href);
   await offline.setOffline(true);
   await verifyPage.locator("#proof").setInputFiles(proofPath);
-  await verifyPage.waitForFunction(() => document.querySelector(".verdict")?.textContent?.includes("proof checks out"));
+  await verifyPage.waitForFunction(() => document.querySelector(".verdict"));
+  console.log(`  ${name}: verifier (file://, isSecureContext=${await verifyPage.evaluate(() => isSecureContext)}, subtle=${await verifyPage.evaluate(() => Boolean(crypto.subtle))}): ${await verifyPage.locator(".verdict").textContent()}`);
   const verdict = await verifyPage.locator(".verdict").textContent();
   assert.match(verdict || "", /proof checks out/i);
 
