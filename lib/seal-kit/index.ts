@@ -1,8 +1,10 @@
-export { sealPage, sealPolicy, getSealStatus, subscribeToSeal, canRetrySeal, resetFailedSeal } from "./seal";
-export type { SealOptions, SealState, SealStatus } from "./seal";
-export { buildProof, proofJson, verifyProof, verifyReleaseSeal, evidenceFromBody, fetchReleaseInfo, PROOF_FORMAT, PROOF_LIMITS } from "./proof";
-export type { Proof, ProofBody, ReleaseInfo, ReleaseSeal, VerifyOptions, VerifyResult, Check } from "./proof";
+export { sealPage, sealPolicy, getSealStatus, subscribeToSeal, canRetrySeal, resetFailedSeal, observeWorkers } from "./seal";
+export type { SealOptions, SealState, SealStatus, ServiceWorkerState } from "./seal";
+export { recordFile, recordFingerprint, observeFileInputs, recordedFiles } from "./files";
+export type { FileRecord, FileSource } from "./files";
+export { buildProof, proofJson, verifyProof, verifyReleaseSeal, evidenceFromBody, workerEvidence, fetchReleaseInfo, PROOF_FORMAT, PROOF_LIMITS } from "./proof";
+export type { Proof, ProofBody, ReleaseInfo, ReleaseSeal, VerifyOptions, VerifyResult, Check, Assurance, WorkerDeclaration } from "./proof";
 export { controlAnswers, rulesetFingerprint, CONTROL_RULESET } from "./control-answers";
-export type { ControlAnswers, ControlAnswer, Evidence } from "./control-answers";
+export type { ControlAnswers, ControlAnswer, Evidence, WorkerEvidence } from "./control-answers";
 export { canonicalJson, canonicalHash, sha256Hex } from "./jcs";
-export const SEAL_KIT_VERSION = "0.1.0";
+export const SEAL_KIT_VERSION = "0.2.0";

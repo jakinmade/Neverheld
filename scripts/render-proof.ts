@@ -53,7 +53,8 @@ h1{font-size:26px}h2{font-size:18px}.notice{padding:14px;background:#f1f4f7;bord
 <h2>Control Answers</h2>${answers}
 <h2>Limits</h2><ul>${limits}</ul>
 <h2>Check this proof</h2>
-<p>Scan this code to open the NEVERHELD verifier with the proof hash pre-filled. The verifier checks the file locally; it does not send proof data to a server. The verifier file is also included in this ZIP for fully offline use.</p>
+<p><strong>Fully offline:</strong> open NEVERHELD-proof-verifier.html from this package and choose NEVERHELD-proof.json. No connection is needed.</p>
+<p><strong>Online, by QR code:</strong> scanning this code opens a hosted copy of the same verifier, which needs a connection to load. Once loaded it checks the file inside the browser; the proof hash travels after the # sign, which browsers do not send to the server.</p>
 <div class="qr">${qrSvg}</div>
 <p><strong>Proof hash (SHA-256):</strong><br><code>${escapeHtml(proof.proofHash.value)}</code></p>
 <p class="muted">The proof hash detects changes only when compared with a separately retained copy. A person can edit the proof and recompute its hash. A signed release authenticates the released code, not the individual session.</p>
@@ -73,6 +74,8 @@ async function main() {
   if (verifierUrl.protocol !== "https:" && verifierUrl.protocol !== "http:") {
     throw new Error("Verifier URL must use HTTP or HTTPS.");
   }
+  const local = ["localhost", "127.0.0.1", "[::1]"].includes(verifierUrl.hostname);
+  if (verifierUrl.protocol === "http:" && !local) throw new Error("A hosted verifier must use HTTPS, so the page cannot be altered in transit.");
   const proof = JSON.parse(readFileSync(proofPath, "utf8")) as Proof;
   const verified = await verifyProof(proof);
   if (!verified.valid) {
@@ -93,7 +96,7 @@ async function main() {
     "NEVERHELD proof package",
     "",
     "For a fully offline check, open NEVERHELD-proof-verifier.html in a modern browser and select NEVERHELD-proof.json.",
-    "For the QR route, scan the code in NEVERHELD-proof.html. It opens the hosted verifier with the expected proof hash.",
+    "For the QR route, scan the code in NEVERHELD-proof.html. It opens a hosted copy of the verifier (needs a connection) with the expected proof hash; that route is not offline.",
     "The proof is written by the page and is not signed. Successful checking establishes internal consistency, not that the session happened.",
     "A signed release file can be added separately to check release authenticity.",
     "",

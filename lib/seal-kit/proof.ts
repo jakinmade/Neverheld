@@ -14,10 +14,15 @@
  * signed public release it names, which the verifier checks with the published key.
  */
 import { canonicalHash, canonicalJson, ed25519Verify, sha256Hex } from "./jcs";
-import { controlAnswers, rulesetFingerprint, type ControlAnswers, type Evidence } from "./control-answers";
-import type { SealStatus } from "./seal";
+import { controlAnswers, rulesetFingerprint, type ControlAnswers, type Evidence, type WorkerEvidence } from "./control-answers";
+import type { SealStatus, ServiceWorkerState } from "./seal";
+import type { FileRecord } from "./files";
 
-export const PROOF_FORMAT = "seal-kit-proof/1";
+/** Format 2: worker, service worker and file evidence are recorded separately (Nov 2026). */
+export const PROOF_FORMAT = "seal-kit-proof/2";
+
+/** What the application owner says about its background workers. Never tested by the session. */
+export type WorkerDeclaration = "none" | "blocked" | "not-declared";
 
 export type ReleaseInfo = {
   /** e.g. "neverheld-1.0.22+0123456789ab" */
@@ -39,10 +44,12 @@ export type ProofBody = {
     policy: string;
     pageRequestsSinceSealing: number;
     blockedAttemptsSinceSealing: number;
-    workersNetwork: "configured" | "not-declared";
-    workers: string;
+    workers: { declaration: WorkerDeclaration; description: string; startedBeforeSeal: number; startedAfterSeal: number };
+    serviceWorker: ServiceWorkerState;
   };
-  files: Array<{ name: string; sha256: string }>;
+  /** How files came to be listed: observed inputs and drops, and/or the host's own records. */
+  filesRecording: "observed-and-host" | "host-only";
+  files: FileRecord[];
   controlAnswers: ControlAnswers;
   limits: string[];
   createdAt: string;
@@ -55,7 +62,10 @@ export const PROOF_LIMITS = [
   "Browser extensions run outside any page's rules and are not covered.",
   "Moving the whole tab to another address is not covered by browser policy; the sealed page's links open in a new tab instead.",
   "Anything done in another browser tab is not covered.",
-  "The proof hash shows the proof is intact. It is not a signature: the release it names is signed, and the verifier checks that.",
+  "The proof hash shows only that the proof matches itself. Anyone can edit a proof and recompute the hash; compare it with a copy kept separately. It is not a signature.",
+  "The proof does not show that the session took place. A signed release seal, when one is supplied, authenticates the released code it names, not the session.",
+  "Workers started before NEVERHELD loaded cannot be seen by the page; for those the proof relies on the application owner's declaration, which the session does not test.",
+  "Only files chosen in a file input, dropped on the page or recorded by the application are listed.",
   "The Control Answers are evidence for counsel, auditors and reviewers. They are not legal, audit or compliance opinions.",
 ];
 
@@ -83,6 +93,12 @@ function policyRefusesEveryAddress(policy: string): boolean {
 }
 
 /** The facts the Control Answers rest on, worked out from the proof body alone. */
+export function workerEvidence(workers: ProofBody["seal"]["workers"]): WorkerEvidence {
+  if (workers.declaration === "not-declared") return "not-declared";
+  if (workers.declaration === "none" && workers.startedBeforeSeal > 0) return "contradicted";
+  return workers.declaration === "none" ? "declared-none" : "declared-blocked";
+}
+
 export function evidenceFromBody(body: Pick<ProofBody, "seal" | "files">): Evidence {
   return {
     sealed: body.seal.state === "sealed",
@@ -92,17 +108,22 @@ export function evidenceFromBody(body: Pick<ProofBody, "seal" | "files">): Evide
     policyBlocksAllConnections: typeof body.seal.policy === "string" && policyRefusesEveryAddress(body.seal.policy),
     pageRequestsSinceSealing: body.seal.pageRequestsSinceSealing,
     blockedAttemptsSinceSealing: body.seal.blockedAttemptsSinceSealing,
-    workersNetwork: body.seal.workersNetwork,
-    filesFingerprinted: body.files.length,
+    workers: workerEvidence(body.seal.workers),
+    serviceWorker: body.seal.serviceWorker,
+    filesFingerprinted: body.files.filter((file) => file.openedAfterSeal).length,
+    filesOpenedBeforeSeal: body.files.filter((file) => !file.openedAfterSeal).length,
   };
 }
 
 export type BuildProofInput = {
   status: SealStatus;
-  files: Array<{ name: string; sha256: string }>;
+  /** Files recorded by the kit (recordedFiles()) and/or the host. */
+  files: FileRecord[];
+  /** True when the kit was observing file inputs and drops. */
+  observedFiles?: boolean;
   application: { name: string; version: string; commit: string };
   release: ReleaseInfo;
-  workers: { network: "configured" | "not-declared"; description: string };
+  workers: { declaration: WorkerDeclaration; description: string };
   createdAt?: Date;
 };
 
@@ -117,16 +138,17 @@ export async function buildProof(input: BuildProofInput): Promise<Proof> {
     policy: status.policy,
     pageRequestsSinceSealing: status.requests,
     blockedAttemptsSinceSealing: status.blocked,
-    workersNetwork: input.workers.network,
-    workers: input.workers.description,
+    workers: { declaration: input.workers.declaration, description: input.workers.description, startedBeforeSeal: status.workersStartedBeforeSeal, startedAfterSeal: status.workersStartedAfterSeal },
+    serviceWorker: status.serviceWorker ?? "registered",
   };
-  const files = input.files.map((file) => ({ name: file.name, sha256: file.sha256 }));
+  const files = input.files.map((file) => ({ name: file.name, sha256: file.sha256, source: file.source, openedAfterSeal: file.openedAfterSeal }));
   const body: ProofBody = {
     format: PROOF_FORMAT,
     nature: "Proof written by the sealed page. Check it with the offline verifier; it needs no contact with the vendor.",
     application: { ...input.application },
     release: { ...input.release },
     seal,
+    filesRecording: input.observedFiles ? "observed-and-host" : "host-only",
     files,
     controlAnswers: await controlAnswers(evidenceFromBody({ seal, files })),
     limits: [...PROOF_LIMITS],
@@ -177,7 +199,7 @@ export async function verifyReleaseSeal(seal: ReleaseSeal, publicKeyB64: string)
         add(`Signed release time ${entry.time}`, ok);
         timestampOk ||= ok;
       } else {
-        checks.push({ name: `Independent timestamp (${entry.type}${entry.tsa ? `, ${entry.tsa}` : ""}): present, not verified here`, ok: true, unverified: true, detail: "this verifier does not check the token; check it with: openssl ts -verify (see docs/SEAL-PROOF-FORMAT.md)" });
+        checks.push({ name: `Independent timestamp (${entry.type}${entry.tsa ? `, ${entry.tsa}` : ""}): present, not verified here`, ok: true, unverified: true, detail: "this verifier does not check the token; check it with tools/coldcheck-release.sh and the TSA's CA certificate (see docs/PROOF-FORMAT.md)" });
       }
     }
     if (!add("Release has a valid signed time", timestampOk)) return { valid: false, checks };
@@ -197,13 +219,36 @@ export type VerifyOptions = {
   manifestText?: string;
 };
 
-export type VerifyResult = { valid: boolean; releaseChecked: boolean; checks: Check[] };
+/**
+ * Four separate questions, never collapsed into one "verified":
+ * proof self-consistency, signed release authenticity, independent timestamp, session attestation.
+ */
+export type Assurance = {
+  proofConsistent: boolean;
+  release: "authentic" | "not-checked" | "failed";
+  independentTimestamp: "not-verified";
+  sessionAttestation: "not-provided";
+};
+
+export type VerifyResult = { valid: boolean; releaseChecked: boolean; checks: Check[]; assurance: Assurance };
 
 /** Check a proof offline. Returns every check made, in order; `valid` only if all passed. */
 export async function verifyProof(input: unknown, options: VerifyOptions = {}): Promise<VerifyResult> {
   const checks: Check[] = [];
   const add = (name: string, ok: boolean, detail = "") => { checks.push({ name, ok, detail }); return ok; };
-  const done = (releaseChecked = false): VerifyResult => ({ valid: checks.every((check) => check.ok), releaseChecked, checks });
+  let release: Assurance["release"] = "not-checked";
+  let consistentUpTo = Infinity;
+  const done = (releaseChecked = false): VerifyResult => ({
+    valid: checks.every((check) => check.ok),
+    releaseChecked,
+    checks,
+    assurance: {
+      proofConsistent: checks.slice(0, consistentUpTo).every((check) => check.ok) && consistentUpTo !== Infinity,
+      release,
+      independentTimestamp: "not-verified",
+      sessionAttestation: "not-provided",
+    },
+  });
   const proof = input as Proof;
   try {
     const keys = proof && typeof proof === "object" ? Object.keys(proof).sort().join(",") : "";
@@ -217,6 +262,7 @@ export async function verifyProof(input: unknown, options: VerifyOptions = {}): 
     add("Control Answers are exactly what the rules give for this evidence", canonicalJson(expected) === canonicalJson(proof.body.controlAnswers));
     const seal = proof.body.seal;
     add("Page was sealed and the self-test was refused", seal.state === "sealed" && seal.selfTest === "refused");
+    consistentUpTo = checks.length;
     add("No page request after sealing", seal.pageRequestsSinceSealing === 0, `requests ${seal.pageRequestsSinceSealing}, blocked ${seal.blockedAttemptsSinceSealing}`);
     if (options.manifestText !== undefined) {
       const manifestHash = await sha256Hex(options.manifestText);
@@ -224,12 +270,14 @@ export async function verifyProof(input: unknown, options: VerifyOptions = {}): 
     }
     if (options.releaseSeal) {
       if (!options.publicKeyB64) { add("Published release key supplied", false); return done(); }
-      const release = await verifyReleaseSeal(options.releaseSeal, options.publicKeyB64);
-      checks.push(...release.checks);
-      if (release.valid) {
+      const releaseResult = await verifyReleaseSeal(options.releaseSeal, options.publicKeyB64);
+      checks.push(...releaseResult.checks);
+      release = "failed";
+      if (releaseResult.valid) {
         const signed = options.releaseSeal.record.release;
-        add("Proof names this signed release", signed?.id === proof.body.release.id, `${proof.body.release.id} / ${signed?.id}`);
-        add("Proof's release file list is the signed one", Boolean(proof.body.release.manifestSha256) && signed?.manifest_sha256 === proof.body.release.manifestSha256, String(proof.body.release.manifestSha256));
+        const named = add("Proof names this signed release", signed?.id === proof.body.release.id, `${proof.body.release.id} / ${signed?.id}`);
+        const listed = add("Proof's release file list is the signed one", Boolean(proof.body.release.manifestSha256) && signed?.manifest_sha256 === proof.body.release.manifestSha256, String(proof.body.release.manifestSha256));
+        if (named && listed) release = "authentic";
       }
       return done(true);
     }

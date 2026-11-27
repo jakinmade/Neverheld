@@ -14,8 +14,11 @@
  *
  * What it does not cover (browsers offer no policy for these): moving the whole tab to another
  * address, by a link or by a script, and browser extensions, which run outside the page's policy.
- * Requests made inside workers are not visible to the page's counter, which is why workers
- * must be started before sealing and served with their own policy that blocks network access.
+ * Requests made inside workers and service workers are not visible to the page's counter and are
+ * not refused by the page's rule. The seal therefore records whether a service worker is
+ * registered or in control, and how many workers the page started before and after sealing
+ * (workers started after sealing can only come from blob: and take the page's rule). Workers
+ * started before NEVERHELD loaded, or through a reference saved before it loaded, cannot be seen.
  *
  * No dependencies and nothing specific to one product. Moved here unchanged in behaviour from
  * EXEVVIA's lib/browser-seal.ts (v1.0.21), which now loads it from this kit.
@@ -55,6 +58,7 @@ export function sealPolicy(options: SealOptions = {}): string {
 }
 
 export type SealState = "open" | "sealing" | "sealed" | "failed";
+export type ServiceWorkerState = "none" | "registered" | "controlling" | "not-available";
 
 export type SealStatus = {
   state: SealState;
@@ -72,12 +76,18 @@ export type SealStatus = {
   blocked: number;
   /** Addresses of requests and blocked attempts, for the "check it yourself" panel. */
   log: string[];
+  /** Workers (dedicated or shared) the page started after NEVERHELD loaded, before sealing. */
+  workersStartedBeforeSeal: number;
+  /** Workers started after sealing (blob: only, which take the page's rule). */
+  workersStartedAfterSeal: number;
+  /** Service worker state at sealing, kept at its worst value seen since. */
+  serviceWorker?: ServiceWorkerState;
   error?: string;
 };
 
 const PROBE_PATH = "/seal-self-test";
 
-let status: SealStatus = { state: "open", requests: 0, blocked: 0, log: [] };
+let status: SealStatus = { state: "open", requests: 0, blocked: 0, log: [], workersStartedBeforeSeal: 0, workersStartedAfterSeal: 0 };
 const listeners = new Set<(value: SealStatus) => void>();
 let sealing: Promise<void> | undefined;
 
@@ -86,8 +96,50 @@ function update(change: Partial<SealStatus>) {
   for (const listener of listeners) listener(status);
 }
 
+const SERVICE_WORKER_RANK: ServiceWorkerState[] = ["not-available", "none", "registered", "controlling"];
+function worse(a: ServiceWorkerState | undefined, b: ServiceWorkerState): ServiceWorkerState {
+  return a && SERVICE_WORKER_RANK.indexOf(a) > SERVICE_WORKER_RANK.indexOf(b) ? a : b;
+}
+
+/** A service worker can claim the page after sealing, so the state is re-read on every call. */
 export function getSealStatus(): SealStatus {
+  if (status.serviceWorker && typeof navigator !== "undefined" && navigator.serviceWorker?.controller) {
+    status = { ...status, serviceWorker: "controlling" };
+  }
   return status;
+}
+
+async function serviceWorkerState(): Promise<ServiceWorkerState> {
+  const container = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
+  if (!container) return "not-available";
+  if (container.controller) return "controlling";
+  try {
+    return (await container.getRegistrations()).length > 0 ? "registered" : "none";
+  } catch {
+    return "registered"; // unknown is treated as the unsafe answer
+  }
+}
+
+let observingWorkers = false;
+/**
+ * Count the workers the page starts from now on. Called when NEVERHELD loads, so that workers
+ * started between loading and sealing are seen. It only counts; it never blocks a worker.
+ */
+export function observeWorkers() {
+  if (observingWorkers || typeof window === "undefined") return;
+  observingWorkers = true;
+  const target = window as unknown as Record<string, unknown>;
+  for (const name of ["Worker", "SharedWorker"]) {
+    const Original = target[name];
+    if (typeof Original !== "function") continue;
+    target[name] = new Proxy(Original, {
+      construct(original, args, newTarget) {
+        if (status.state === "sealed") update({ workersStartedAfterSeal: status.workersStartedAfterSeal + 1 });
+        else update({ workersStartedBeforeSeal: status.workersStartedBeforeSeal + 1 });
+        return Reflect.construct(original as new (...a: unknown[]) => object, args, newTarget);
+      },
+    });
+  }
 }
 
 export function subscribeToSeal(listener: (value: SealStatus) => void): () => void {
@@ -177,6 +229,7 @@ function startCounting(sealedAt: number) {
  */
 export function sealPage(prepare: () => Promise<void> = async () => {}, options: SealOptions = {}): Promise<void> {
   if (sealing) return sealing;
+  observeWorkers();
   sealing = (async () => {
     update({ state: "sealing", error: undefined });
     try {
@@ -191,10 +244,11 @@ export function sealPage(prepare: () => Promise<void> = async () => {}, options:
       if (!(await selfTest())) {
         throw new Error("This browser did not apply the seal, so no file has been opened. Please use an up-to-date Chrome, Edge, Firefox or Safari.");
       }
+      const serviceWorker = worse(status.serviceWorker, await serviceWorkerState());
       const sealedAt = performance.now();
       startCounting(sealedAt);
       keepLinksInNewTabs();
-      update({ state: "sealed", sealedAt, policy, sealedAtEpoch: Date.now(), sealedAtTime: new Date().toLocaleTimeString("en-GB") });
+      update({ state: "sealed", sealedAt, policy, serviceWorker, sealedAtEpoch: Date.now(), sealedAtTime: new Date().toLocaleTimeString("en-GB") });
     } catch (error) {
       update({ state: "failed", error: error instanceof Error ? error.message : "The page could not be sealed." });
       throw error;

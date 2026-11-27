@@ -29,12 +29,19 @@ function render(result: VerifyResult, proof: Proof | undefined, expectedHash: st
     if (!same) result = { ...result, valid: false };
   }
   const verdict = result.valid
-    ? `<p class="verdict ok">The proof checks out${result.releaseChecked ? ", and it names a genuine signed release." : ". Add the release seal to check the release too."}${result.checks.some((check) => check.unverified) ? " Items marked ? are present but not checked by this page; see each one." : ""}</p><p class="limits">This shows the proof is consistent and, if its proof hash was kept separately, unchanged. The proof is not signed, so it does not prove that the session took place; the signature covers the release it names, not the session.</p>`
+    ? `<p class="verdict ok">The proof checks out${result.releaseChecked ? " and names a genuine signed release" : ""}. See below for what that does and does not establish.${result.checks.some((check) => check.unverified) ? " Items marked ? are present but not checked by this page; see each one." : ""}</p><p class="limits">This shows the proof is consistent and, if its proof hash was kept separately, unchanged. The proof is not signed, so it does not prove that the session took place; the signature covers the release it names, not the session.</p>`
     : `<p class="verdict bad">The proof does not check out. Do not rely on it.</p>`;
   const answers = result.valid && proof ? `<h2>Control Answers</h2>${proof.body.controlAnswers.answers.map((answer) => `<div class="answer"><h3>${escapeHtml(answer.name)}</h3><p class="q">${escapeHtml(answer.question)}</p><p>${escapeHtml(answer.answer)}</p><p class="limits">${escapeHtml(answer.limits)}</p></div>`).join("")}
     <p class="limits">Ruleset ${escapeHtml(proof.body.controlAnswers.rulesetVersion)}, fingerprint ${escapeHtml(proof.body.controlAnswers.rulesetFingerprint)}</p>` : "";
   const summary = proof?.body ? `<p class="meta">${escapeHtml(proof.body.application?.name ?? "")} ${escapeHtml(proof.body.application?.version ?? "")} · release ${escapeHtml(proof.body.release?.id ?? "")} · sealed ${escapeHtml(proof.body.seal?.sealedAt ?? "")} · ${proof.body.files?.length ?? 0} file(s)</p>` : "";
-  $("result").innerHTML = `${verdict}${summary}<ul class="checks">${rows.join("")}</ul>${answers}`;
+  const a = result.assurance;
+  const level = (ok: boolean | undefined, text: string) => `<li class="${ok === undefined ? "unverified" : ok ? "ok" : "bad"}"><span>${ok === undefined ? "–" : ok ? "✓" : "✗"}</span> ${text}</li>`;
+  const levels = `<h2>What this check establishes</h2><ul class="checks">
+${level(a.proofConsistent, `1. Proof self-consistency: ${a.proofConsistent ? "the proof matches its own hash and its Control Answers follow from its evidence" : "failed"}`)}
+${level(a.release === "authentic" ? true : a.release === "failed" ? false : undefined, `2. Signed release: ${a.release === "authentic" ? "the named release is genuine and signed" : a.release === "failed" ? "the release check failed" : "not checked (no release seal supplied)"}`)}
+${level(undefined, "3. Independent timestamp: not verified by this page")}
+${level(undefined, "4. Session attestation: not provided. The proof is written by the page; nothing here proves the session took place")}</ul>`;
+  $("result").innerHTML = `${verdict}${levels}${summary}<ul class="checks">${rows.join("")}</ul>${answers}`;
 }
 
 async function run() {

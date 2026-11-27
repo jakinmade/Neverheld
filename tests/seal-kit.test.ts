@@ -9,17 +9,18 @@ import JSZip from "jszip";
 import { gzipSync } from "node:zlib";
 import {
   buildProof, canonicalJson, controlAnswers, evidenceFromBody, proofJson, sealPolicy, verifyProof,
-  CONTROL_RULESET, SEAL_KIT_VERSION, type SealStatus,
+  CONTROL_RULESET, PROOF_LIMITS, SEAL_KIT_VERSION, type SealStatus,
 } from "../lib/seal-kit";
 
 const status = (change: Partial<SealStatus> = {}): SealStatus => ({
   state: "sealed", sealedAt: 1000, sealedAtEpoch: Date.UTC(2026, 10, 27, 18),
-  sealedAtTime: "18:00", policy: sealPolicy(), requests: 0, blocked: 0, log: [], ...change,
+  sealedAtTime: "18:00", policy: sealPolicy(), requests: 0, blocked: 0, log: [],
+  workersStartedBeforeSeal: 0, workersStartedAfterSeal: 0, serviceWorker: "none", ...change,
 });
-const files = [{ name: "sample.pdf", sha256: "a".repeat(64) }];
+const files = [{ name: "sample.pdf", sha256: "a".repeat(64), source: "host" as const, openedAfterSeal: true }];
 const application = { name: "test", version: "0.1.0", commit: "test" };
 const release = { id: "test-release", manifestSha256: "b".repeat(64), manifestFiles: 2 };
-const workers = { network: "configured" as const, description: "Worker restrictions declared for test only." };
+const workers = { declaration: "blocked" as const, description: "Worker restrictions declared for test only." };
 
 test("production seal policy permits no network address", () => {
   const policy = sealPolicy();
@@ -47,7 +48,7 @@ test("six Control Answers are deterministic", async () => {
 test("worker evidence not declared fails closed", async () => {
   const proof = await buildProof({
     status: status(), files, application, release,
-    workers: { network: "not-declared", description: "No worker evidence." },
+    workers: { declaration: "not-declared", description: "No worker evidence." },
   });
   assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "not-supported"));
 });
@@ -75,7 +76,75 @@ test("standalone bundle builds under 15 KB gzip", () => {
   assert.match(bundle.toString(), /Neverheld/);
 });
 
-test("initial extraction version", () => assert.equal(SEAL_KIT_VERSION, "0.1.0"));
+test("kit version", () => assert.equal(SEAL_KIT_VERSION, "0.2.0"));
+
+// --- Regression tests for the Nov 2026 independent review (docs/REVIEW-FINDINGS.md) ---
+
+test("R1 a registered or controlling service worker makes every Control Answer unsupported", async () => {
+  for (const serviceWorker of ["registered", "controlling"] as const) {
+    const proof = await buildProof({ status: status({ serviceWorker }), files, application, release, workers });
+    assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "not-supported"), serviceWorker);
+    assert.match(proof.body.controlAnswers.answers[0].answer, /service worker/);
+  }
+  const unknown = await buildProof({ status: status({ serviceWorker: undefined }), files, application, release, workers });
+  assert.equal(unknown.body.seal.serviceWorker, "registered", "an unknown service-worker state is recorded as the unsafe value");
+});
+
+test("R2 a worker seen starting before the seal contradicts a 'no workers' declaration", async () => {
+  const none = { declaration: "none" as const, description: "none" };
+  const clean = await buildProof({ status: status(), files, application, release, workers: none });
+  assert.ok(clean.body.controlAnswers.answers.every((item) => item.result === "supported"));
+  const seen = await buildProof({ status: status({ workersStartedBeforeSeal: 1 }), files, application, release, workers: none });
+  assert.ok(seen.body.controlAnswers.answers.every((item) => item.result === "not-supported"));
+  assert.equal((await verifyProof(JSON.parse(proofJson(seen)))).assurance.proofConsistent, true);
+});
+
+test("R3 worker wording never claims a test that did not happen", async () => {
+  const text = JSON.stringify(CONTROL_RULESET);
+  assert.doesNotMatch(text, /live seal check does/);
+  const proof = await buildProof({ status: status(), files, application, release, workers });
+  assert.match(proof.body.controlAnswers.answers[0].answer, /declared[^.]*; this session did not test that declaration/);
+});
+
+test("R4 no recorded files is stated as unknown, never as '0 files were processed'", async () => {
+  const proof = await buildProof({ status: status(), files: [], application, release, workers });
+  const answer = proof.body.controlAnswers.answers[0].answer;
+  assert.doesNotMatch(answer, /0 file\(s\) were processed/);
+  assert.match(answer, /No file fingerprints were recorded, so this proof does not show which files, if any/);
+});
+
+test("R5 a file opened before sealing makes the Control Answers unsupported", async () => {
+  const early = [{ ...files[0], openedAfterSeal: false }];
+  const proof = await buildProof({ status: status(), files: early, application, release, workers });
+  assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "not-supported"));
+});
+
+test("R6 verifier reports four separate assurance levels and never claims session attestation", async () => {
+  const proof = JSON.parse(proofJson(await buildProof({ status: status(), files, application, release, workers })));
+  const result = await verifyProof(proof);
+  assert.deepEqual(result.assurance, { proofConsistent: true, release: "not-checked", independentTimestamp: "not-verified", sessionAttestation: "not-provided" });
+  proof.body.application.name = "edited";
+  assert.equal((await verifyProof(proof)).assurance.proofConsistent, false);
+});
+
+test("R7 built verifier page has a well-formed policy that blocks every address", () => {
+  spawnSync(process.execPath, ["scripts/build-kit.mjs"], { encoding: "utf8" });
+  const html = readFileSync("public/neverheld/verify.html", "utf8");
+  const policy = /http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html)?.[1] ?? "";
+  for (const directive of policy.split(";").map((part) => part.trim()).filter(Boolean)) {
+    for (const source of directive.split(/\s+/).slice(1)) {
+      assert.match(source, /^('none'|'unsafe-inline'|data:)$/, `malformed or permissive source "${source}" in ${directive}`);
+    }
+  }
+  assert.match(policy, /base-uri 'none'/);
+  assert.match(policy, /connect-src 'none'/);
+});
+
+test("R8 proof limits do not say the named release is signed when no release seal exists", () => {
+  const limits = JSON.stringify(PROOF_LIMITS);
+  assert.doesNotMatch(limits, /the release it names is signed, and the verifier checks that/);
+  assert.match(limits, /does not show that the session took place/);
+});
 
 test("optional proof renderer packages QR, readable proof and offline verifier without changing the browser bundle", async () => {
   const proof = await buildProof({ status: status(), files, application, release, workers });

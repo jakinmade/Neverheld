@@ -27,7 +27,7 @@ const verifier = await build({
 // Prevent an embedded script terminator from closing the HTML script element.
 const verifierJs = verifier.outputFiles[0].text.replaceAll("</script", "<" + String.fromCharCode(92) + "/script");
 const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'; img-src data:">
 <title>NEVERHELD offline verifier</title>
 <style>body{font:15px/1.55 system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#1d2433}h1{font-size:1.6rem}.note,.meta,.limits,small{color:#5b6478;font-size:.85rem}.checks{list-style:none;padding:0}.checks li{padding:.35rem 0;border-bottom:1px solid #e5e8ef}.ok span,.verdict.ok{color:#11734b}.bad span,.verdict.bad{color:#b42318}.unverified span{color:#9a6700}.answer{border:1px solid #e5e8ef;border-radius:10px;padding:.6rem .9rem;margin:.6rem 0}</style></head>
 <body><h1>NEVERHELD proof verifier</h1>

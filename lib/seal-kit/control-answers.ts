@@ -18,11 +18,17 @@ export type Evidence = {
   policyBlocksAllConnections: boolean;
   pageRequestsSinceSealing: number;
   blockedAttemptsSinceSealing: number;
-  workersNetwork: "configured" | "not-declared";
+  /** declared-none / declared-blocked come from the application owner and are not tested by the session. */
+  workers: WorkerEvidence;
+  /** A service worker runs outside the page's policy and can send whatever the page posts to it. */
+  serviceWorker: "none" | "registered" | "controlling" | "not-available";
   filesFingerprinted: number;
+  filesOpenedBeforeSeal: number;
 };
 
-type Condition = { id: keyof Evidence; equals: boolean | number | string; failure: string };
+export type WorkerEvidence = "declared-none" | "declared-blocked" | "not-declared" | "contradicted";
+
+type Condition = { id: keyof Evidence; oneOf: Array<boolean | number | string>; failure: string };
 
 type Pack = {
   id: string;
@@ -36,23 +42,33 @@ type Pack = {
 /** The ruleset. Changing any character changes its fingerprint; bump `version` when you do. */
 export const CONTROL_RULESET = {
   id: "seal-kit-control-answers",
-  version: "1.1.0",
+  version: "2.0.0",
   conditions: [
-    { id: "sealed", equals: true, failure: "the page was not sealed" },
-    { id: "selfTestRefused", equals: true, failure: "the seal self-test was not refused by the browser" },
-    { id: "policyBlocksAllConnections", equals: true, failure: "the policy in force did not block all connections" },
-    { id: "pageRequestsSinceSealing", equals: 0, failure: "the page made network requests after sealing" },
-    { id: "workersNetwork", equals: "configured", failure: "background workers were not configured to be blocked from the network" },
+    { id: "sealed", oneOf: [true], failure: "the page was not sealed" },
+    { id: "selfTestRefused", oneOf: [true], failure: "the seal self-test was not refused by the browser" },
+    { id: "policyBlocksAllConnections", oneOf: [true], failure: "the policy in force did not block all connections" },
+    { id: "pageRequestsSinceSealing", oneOf: [0], failure: "the page made network requests after sealing" },
+    { id: "serviceWorker", oneOf: ["none", "not-available"], failure: "a service worker was registered for or controlling the page, and a service worker is outside the page's rule" },
+    { id: "workers", oneOf: ["declared-none", "declared-blocked"], failure: "background workers were not accounted for: the application owner did not declare them, or a worker was seen starting before the seal although none was declared" },
+    { id: "filesOpenedBeforeSeal", oneOf: [0], failure: "a file was opened before the page was sealed" },
   ] as Condition[],
+  workerNote: {
+    "declared-none": "The application owner declared that the page starts no background workers, and none was seen starting before the seal after NEVERHELD loaded; workers started before NEVERHELD loaded cannot be seen by the page.",
+    "declared-blocked": "The application owner declared that the page's background workers are served with their own rule refusing network access; this session did not test that declaration.",
+  } as Record<string, string>,
+  filesNote: {
+    zero: "No file fingerprints were recorded, so this proof does not show which files, if any, the page processed.",
+    nonZero: "{files} file fingerprint(s) were recorded for files opened after sealing; this proof records only their SHA-256 fingerprints, never their content. Files the application opened by other means are not listed.",
+  },
   blockedNote: {
     zero: "No attempt to connect was made after sealing.",
     nonZero: "The browser refused {blocked} attempt(s) to connect after sealing; none was sent.",
   },
   sessionEvidence:
-    "For this session, the browser enforced a rule refusing the page's network connections and resource requests (fetch, upload, beacon, socket, form post, and image, script, style, font and worker loads from any address), the seal self-test was refused, and the page made {requests} network requests after sealing. {blockedNote} The background workers were configured, by the rule they are served with, to be refused network access; this session did not test them (the release's live seal check does). The {files} file(s) were processed inside the browser tab; this proof records only their SHA-256 fingerprints, never their content.",
+    "For this session, the browser enforced a rule refusing the page's network connections and resource requests (fetch, upload, beacon, socket, form post, and image, script, style, font and worker loads from any address), the seal self-test was refused, and the page made {requests} network requests after sealing. {blockedNote} No service worker was registered for or controlling the page. {workerNote} {filesNote}",
   notSupportedLead: "The evidence does not support this for this session, because {reason}. Treat the session as one in which data may have left the page.",
   commonLimits:
-    "Not covered: the whole tab being moved to another address, by a link or by a script, which browsers offer no rule to stop and which could carry data in the address; browser extensions; and other browser tabs. The page wrote this evidence itself; it is not an independent audit.",
+    "Not covered: the whole tab being moved to another address, or a new window or tab being opened, by a link or by a script, which browsers offer no rule to stop and which could carry data in the address; data the page keeps in browser storage, which a later unsealed visit could send; data passed to other tabs or frames; browser extensions; and activity before sealing. The page wrote this evidence itself; it is not an independent audit.",
   packs: [
     {
       id: "hipaa-business-associate",
@@ -82,7 +98,7 @@ export const CONTROL_RULESET = {
       id: "vendor-questionnaire-data-access",
       name: "Vendor questionnaire: data access (SIG / CAIQ style)",
       question: "Does the vendor access, store or process customer data?",
-      supported: "{sessionEvidence} The files were processed in the user's browser, and the page sent nothing to the vendor by network connection or resource request, subject to the limits below.",
+      supported: "{sessionEvidence} The page sent nothing to the vendor by network connection or resource request in this session, subject to the limits below.",
       notSupported: "{notSupportedLead}",
       limits: "Per-session evidence for this page, not a statement of the vendor's policies, staff access or other services.",
     },
@@ -133,12 +149,13 @@ export async function rulesetFingerprint(): Promise<string> {
 /** Answers for the given evidence. Pure and deterministic apart from hashing the ruleset. */
 export async function controlAnswers(evidence: Evidence): Promise<ControlAnswers> {
   const rules = CONTROL_RULESET;
-  const failed = rules.conditions.find((condition) => evidence[condition.id] !== condition.equals);
+  const failed = rules.conditions.find((condition) => !condition.oneOf.includes(evidence[condition.id]));
   const blockedNote = fill(evidence.blockedAttemptsSinceSealing === 0 ? rules.blockedNote.zero : rules.blockedNote.nonZero, { blocked: String(evidence.blockedAttemptsSinceSealing) });
   const sessionEvidence = fill(rules.sessionEvidence, {
     requests: String(evidence.pageRequestsSinceSealing),
     blockedNote,
-    files: String(evidence.filesFingerprinted),
+    workerNote: rules.workerNote[evidence.workers] ?? "",
+    filesNote: fill(evidence.filesFingerprinted === 0 ? rules.filesNote.zero : rules.filesNote.nonZero, { files: String(evidence.filesFingerprinted) }),
   });
   const notSupportedLead = fill(rules.notSupportedLead, { reason: failed?.failure ?? "" });
   const evidenceLines = rules.conditions.map((condition) => `${condition.id}=${String(evidence[condition.id])}`)

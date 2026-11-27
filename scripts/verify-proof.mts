@@ -16,6 +16,11 @@ const result = await verifyProof(JSON.parse(readFileSync(proofPath, "utf8")), {
 for (const check of result.checks) {
   console.log(`${check.unverified ? "????" : check.ok ? "OK  " : "FAIL"} ${check.name}${check.detail ? ` (${check.detail})` : ""}`);
 }
+const a = result.assurance;
+console.log(`1. proof self-consistency : ${a.proofConsistent ? "PASS" : "FAIL"}`);
+console.log(`2. signed release         : ${a.release}`);
+console.log(`3. independent timestamp  : ${a.independentTimestamp}`);
+console.log(`4. session attestation    : ${a.sessionAttestation}`);
 console.log(result.valid
   ? `PROOF VALID${result.releaseChecked ? " (release checked)" : " (release authenticity not checked)"}`
   : "PROOF NOT VALID");
