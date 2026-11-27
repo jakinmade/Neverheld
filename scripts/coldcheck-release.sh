@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Cold verification of the Ed25519 release signature and its signed self-asserted timestamp.
-# Requires jq, sha256sum, base64 and openssl. Does not validate an RFC 3161 TSA trust chain.
+# Requires jq, sha256sum, base64 and openssl.
+# Optional third argument: the TSA's CA certificate (PEM). With it, an attached RFC 3161 token
+# is validated against that CA; without it the token is reported as present but not validated.
 set -euo pipefail
 F=${1:-}
 PUB=${2:-}
+TSA_CA=${3:-}
 if [ -z "$F" ] || [ ! -f "$F" ]; then
   echo "Usage: scripts/coldcheck-release.sh <NEVERHELD-release-seal.json> [public_key_b64]" >&2
   exit 2
@@ -39,4 +42,16 @@ echo -n "signed release time     : "
 openssl pkeyutl -verify -pubin -inkey "$T/pub.pem" -rawin -in "$T/ts.txt" -sigfile "$T/ts.bin"
 echo "release id              : $(jq -r '.record.release.id' "$F")"
 echo "file manifest SHA-256   : $(jq -r '.record.release.manifest_sha256' "$F")"
-echo "RFC 3161 token          : present-but-not-validated-by-this-script"
+TOKEN=$(jq -r '[.timestamps[] | select(.type == "rfc3161")][0].token_b64 // empty' "$F")
+if [ -z "$TOKEN" ]; then
+  echo "RFC 3161 token          : none attached (independent time not established)"
+elif [ -z "$TSA_CA" ]; then
+  echo "RFC 3161 token          : present, NOT validated (pass the TSA CA certificate as the third argument)"
+else
+  [ "$(jq -r '[.timestamps[] | select(.type == "rfc3161")][0].content_hash' "$F")" = "$H" ] || { echo "RFC 3161 token names a different hash"; exit 1; }
+  printf '%s' "$TOKEN" | base64 -d > "$T/token.tsr"
+  echo -n "RFC 3161 token          : "
+  openssl ts -verify -data "$T/msg.txt" -in "$T/token.tsr" -CAfile "$TSA_CA" 2>&1 | tail -1
+  openssl ts -verify -data "$T/msg.txt" -in "$T/token.tsr" -CAfile "$TSA_CA" >/dev/null 2>&1 || { echo "RFC 3161 token: NOT VALID"; exit 1; }
+  echo "independent time        : $(openssl ts -reply -in "$T/token.tsr" -text 2>/dev/null | sed -n 's/^Time stamp: //p')"
+fi

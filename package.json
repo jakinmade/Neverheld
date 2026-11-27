@@ -1,7 +1,7 @@
 {
   "name": "@neverheld/browser-kit",
-  "version": "0.1.0",
-  "private": false,
+  "version": "0.2.0",
+  "private": true,
   "type": "module",
   "description": "Browser-side network enforcement and offline-verifiable session evidence.",
   "engines": {
@@ -18,7 +18,11 @@
     "verify:proof": "tsx scripts/verify-proof.mts",
     "coldcheck:proof": "bash scripts/coldcheck-proof.sh",
     "coldcheck:release": "bash scripts/coldcheck-release.sh",
-    "pre-render:proof": "npm run build"
+    "pre-render:proof": "npm run build",
+    "test:nextjs": "npm run build && cd examples/nextjs-app && npm ci --no-audit --no-fund && npm run build && cd ../.. && node scripts/nextjs-check.mjs",
+    "package": "npm run build && node scripts/package-release.mjs",
+    "repro:check": "node scripts/repro-check.mjs",
+    "sign:release": "tsx scripts/sign-release.mjs"
   },
   "devDependencies": {
     "@types/node": "22.10.2",
