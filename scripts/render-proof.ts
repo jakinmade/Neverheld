@@ -1,6 +1,5 @@
-import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import JSZip from "jszip";
 import qrcode from "qrcode-generator";
 import { proofJson, verifyProof, type Proof } from "../lib/seal-kit/index";
@@ -64,7 +63,7 @@ h1{font-size:26px}h2{font-size:18px}.notice{padding:14px;background:#f1f4f7;bord
 async function main() {
   const [, , proofArg, verifierUrlArg, outputArg, releaseArg] = process.argv;
   if (!proofArg || !verifierUrlArg || !outputArg) {
-    console.error("Usage: npm run render:proof -- <proof.json> <https://host/neverheld/verify.html> <output.zip> [release-seal.json]");
+    console.error("Usage: node tools/neverheld-render-proof.cjs <proof.json> <https://host/neverheld/verify.html> <output.zip> [release-seal.json]");
     process.exitCode = 2;
     return;
   }
@@ -82,8 +81,10 @@ async function main() {
     throw new Error("Proof consistency check failed; refusing to package an invalid proof.");
   }
 
-  const here = dirname(fileURLToPath(import.meta.url));
-  const verifierPath = resolve(here, "../public/neverheld/verify.html");
+  // Works from the repository (scripts/) and from the release archive (tools/, verifier one level up).
+  const here = dirname(resolve(process.argv[1]));
+  const verifierPath = [resolve(here, "../verify.html"), resolve(here, "../public/neverheld/verify.html")].find((path) => existsSync(path));
+  if (!verifierPath) throw new Error("verify.html not found next to this tool. Run it from the NEVERHELD release folder.");
   const verifierHtml = readFileSync(verifierPath, "utf8");
   const target = new URL(verifierUrl.toString());
   target.hash = `p=${proof.proofHash.value}`;

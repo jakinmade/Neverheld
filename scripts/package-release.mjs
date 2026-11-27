@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
+import { build } from "esbuild";
 
 const root = process.cwd();
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -24,6 +25,21 @@ for (const file of ["app/layout.tsx", "app/page.tsx", "package.json"]) copy(`exa
 copy("README.md"); copy("LICENSE"); copy("release/release-public-key.json", "release-public-key.json");
 for (const doc of ["ARCHITECTURE.md", "INSTALL.md", "API.md", "PROOF-FORMAT.md", "SECURITY-BOUNDARIES.md", "LIMITATIONS.md"]) copy(`docs/${doc}`, `docs/${doc}`);
 for (const script of ["coldcheck-proof.sh", "coldcheck-release.sh"]) copy(`scripts/${script}`, `tools/${script}`);
+// Proof renderer (JSON, readable page with QR, offline verifier, as one ZIP): one Node file with
+// its dependencies bundled, so buyers need no npm install. Third-party licences ship beside it.
+const renderer = await build({
+  entryPoints: [join(root, "scripts/render-proof.ts")], bundle: true, platform: "node", target: "node20", format: "cjs",
+  outfile: join(dir, "tools/neverheld-render-proof.cjs"), legalComments: "none", minify: false, metafile: true, logLevel: "silent",
+  banner: { js: "// NEVERHELD proof renderer. Bundled third-party code: see THIRD-PARTY-LICENSES.txt" },
+});
+const packages = [...new Set(Object.keys(renderer.metafile.inputs).map((input) => /node_modules\/((?:@[^/]+\/)?[^/]+)/.exec(input)?.[1]).filter(Boolean))].sort();
+const licences = packages.map((name) => {
+  const folder = join(root, "node_modules", name);
+  const meta = JSON.parse(readFileSync(join(folder, "package.json"), "utf8"));
+  const file = readdirSync(folder).find((entry) => /^(licen[cs]e|copying)/i.test(entry));
+  return `${name} ${meta.version} (${meta.license})\n${"=".repeat(60)}\n${file ? readFileSync(join(folder, file), "utf8").trim() : "No licence file shipped in the package; licence field: " + meta.license}\n`;
+});
+writeFileSync(join(dir, "tools/THIRD-PARTY-LICENSES.txt"), `Third-party code bundled in tools/neverheld-render-proof.cjs only (not in neverheld.min.js).\njszip is dual-licensed (MIT OR GPL-3.0-or-later); NEVERHELD uses it under MIT.\n\n${licences.join("\n")}`);
 execFileSync(process.execPath, [join(root, "node_modules/typescript/bin/tsc"), "-p", join(root, "tsconfig.release.json"), "--outDir", join(dir, "types")], { stdio: "inherit" });
 
 const files = [];

@@ -64,7 +64,7 @@ test("full release lifecycle: package, sign, independent timestamp, cold check, 
     // A proof naming this release verifies as authentic; a different file list does not.
     const seal = JSON.parse(readFileSync(sealFile, "utf8")) as ReleaseSeal;
     const manifestText = readFileSync(manifest, "utf8");
-    const status = { state: "sealed" as const, sealedAt: 1, sealedAtEpoch: Date.UTC(2026, 10, 27), policy: sealPolicy(), requests: 0, blocked: 0, log: [], workersStartedBeforeSeal: 0, workersStartedAfterSeal: 0, serviceWorker: "none" as const };
+    const status = { state: "sealed" as const, sealedAt: 1, sealedAtEpoch: Date.UTC(2026, 10, 27), policy: sealPolicy(), requests: 0, blocked: 0, log: [], workersStartedBeforeSeal: 0, workersStartedAfterSeal: 0, serviceWorker: "none" as const, connectionsOpenAtSeal: 0, guardBlocked: 0, connectionAllowlist: "not-checked" as const };
     const proof = JSON.parse(proofJson(await buildProof({
       status, files: [], application: { name: "t", version: "t", commit: "t" },
       release: { id: seal.record.release!.id, manifestSha256: createHash("sha256").update(manifestText).digest("hex"), manifestFiles: seal.record.release!.manifest_files },
@@ -85,4 +85,32 @@ test("full release lifecycle: package, sign, independent timestamp, cold check, 
 
 test("two clean builds give a byte-identical release archive", { skip: !haveTools && "tar unavailable" }, () => {
   assert.match(run(process.execPath, ["scripts/repro-check.mjs"]), /reproducible: two clean builds/);
+});
+
+test("R17 the release archive's bundled proof renderer makes a QR proof ZIP with no npm install", { skip: !haveTools && "tar unavailable" }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "neverheld-renderer-"));
+  try {
+    run(process.execPath, ["scripts/build-kit.mjs"]);
+    run(process.execPath, ["scripts/package-release.mjs", dir]);
+    const version = JSON.parse(readFileSync("package.json", "utf8")).version;
+    const unpacked = join(dir, "unpacked");
+    run("bash", ["-c", `mkdir -p "${unpacked}" && tar xzf "${dir}/neverheld-${version}.tar.gz" -C "${unpacked}"`]);
+    const release = join(unpacked, `neverheld-${version}`);
+    const status = { state: "sealed" as const, sealedAt: 1, sealedAtEpoch: Date.UTC(2026, 10, 27), policy: sealPolicy(), requests: 0, blocked: 0, log: [], workersStartedBeforeSeal: 0, workersStartedAfterSeal: 0, serviceWorker: "none" as const, connectionsOpenAtSeal: 0, guardBlocked: 0, connectionAllowlist: "not-checked" as const };
+    const proof = await buildProof({ status, files: [], application: { name: "t", version: "t", commit: "t" }, release: { id: "r", manifestSha256: null, manifestFiles: null }, workers: { declaration: "none", description: "none" } });
+    writeFileSync(join(dir, "proof.json"), proofJson(proof));
+    // Run from a folder with no node_modules anywhere above it.
+    const out = spawnSync(process.execPath, [join(release, "tools/neverheld-render-proof.cjs"), join(dir, "proof.json"), "https://verify.example/verify.html", join(dir, "pack.zip")], { encoding: "utf8", cwd: dir, env: { ...process.env, NODE_PATH: "" } });
+    assert.equal(out.status, 0, out.stdout + out.stderr);
+    const listing = run("unzip", ["-l", join(dir, "pack.zip")]);
+    for (const name of ["NEVERHELD-proof.json", "NEVERHELD-proof.html", "NEVERHELD-proof-verifier.html", "HOW-TO-CHECK.txt"]) assert.match(listing, new RegExp(name));
+    const html = run("unzip", ["-p", join(dir, "pack.zip"), "NEVERHELD-proof.html"]);
+    assert.match(html, /<svg/, "readable proof carries a QR code");
+    assert.match(html, /needs a connection to load/);
+    assert.match(readFileSync(join(release, "tools/THIRD-PARTY-LICENSES.txt"), "utf8"), /jszip 3\.10\.1/);
+    const http = spawnSync(process.execPath, [join(release, "tools/neverheld-render-proof.cjs"), join(dir, "proof.json"), "http://verify.example/verify.html", join(dir, "x.zip")], { encoding: "utf8", cwd: dir });
+    assert.notEqual(http.status, 0, "a hosted verifier over plain http is refused");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
