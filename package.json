@@ -17,7 +17,8 @@
     "render:proof": "tsx scripts/render-proof.ts",
     "verify:proof": "tsx scripts/verify-proof.mts",
     "coldcheck:proof": "bash scripts/coldcheck-proof.sh",
-    "coldcheck:release": "bash scripts/coldcheck-release.sh"
+    "coldcheck:release": "bash scripts/coldcheck-release.sh",
+    "pre-render:proof": "npm run build"
   },
   "devDependencies": {
     "@types/node": "22.10.2",
