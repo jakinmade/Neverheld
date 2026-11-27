@@ -112,10 +112,12 @@ try {
   assert.ok(proof.body.controlAnswers.answers.every((answer) => answer.result === "not-supported"), "undeclared workers fail closed");
 
   // Open the local verifier with the browser network disabled, then check the downloaded proof.
+  // Open the local file first, then cut the network before checking: WebKit cannot open file://
+  // pages in a context that is already offline. Loading a local file uses no network either way.
   const offline = await browser.newContext();
-  await offline.setOffline(true);
   const verifyPage = await offline.newPage();
   await verifyPage.goto(pathToFileURL(resolve(verifierPath)).href);
+  await offline.setOffline(true);
   await verifyPage.locator("#proof").setInputFiles(proofPath);
   await verifyPage.waitForFunction(() => document.querySelector(".verdict")?.textContent?.includes("proof checks out"));
   const verdict = await verifyPage.locator(".verdict").textContent();
