@@ -44,10 +44,15 @@ const scenarios = {
 
 const exfil = [];
 const upgraded = new Set();
-const udpHits = [];
-const udp = createSocket("udp4");
-udp.on("message", () => udpHits.push(Date.now()));
-await new Promise((ok) => udp.bind(0, "127.0.0.1", ok));
+// A fresh UDP listener per scenario, so late retransmissions from one browser cannot be
+// counted against another.
+const udpListener = async () => {
+  const hits = [];
+  const socket = createSocket("udp4");
+  socket.on("message", () => hits.push(Date.now()));
+  await new Promise((ok) => socket.bind(0, "127.0.0.1", ok));
+  return { hits, port: socket.address().port, close: () => socket.close() };
+};
 const sideHits = [];
 const side = createTcpServer((socket) => { sideHits.push(Date.now()); socket.on("error", () => {}); socket.destroy(); });
 await new Promise((ok) => side.listen(0, "127.0.0.1", ok));
@@ -231,7 +236,9 @@ await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen
 
   // R15: WebRTC and speculation rules after sealing are blocked in the page and counted.
   const egress = await sealedPage("/egress");
-  const udpPort = udp.address().port, sidePort = side.address().port;
+  const mainUdp = await udpListener(), frameUdp = await udpListener();
+  const udpPort = mainUdp.port, sidePort = side.address().port;
+  sideHits.length = 0;
   const rtc = await egress.evaluate(async (port) => {
     if (typeof RTCPeerConnection !== "function") return "unavailable";
     try { const peer = new RTCPeerConnection({ iceServers: [{ urls: `stun:127.0.0.1:${port}` }] }); peer.createDataChannel("x"); await peer.setLocalDescription(await peer.createOffer()); return "created"; }
@@ -241,8 +248,9 @@ await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen
   await egress.evaluate((port) => { const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = `http://127.0.0.1:${port}/`; document.head.append(hint); }, sidePort);
   await egress.waitForTimeout(1500);
   const guarded = await egress.evaluate(() => globalThis.Neverheld.getSealStatus());
+  console.log(`  ${name}: WebRTC after sealing: ${rtc}; packets: ${mainUdp.hits.length}`);
   if (rtc !== "unavailable") assert.equal(rtc, "SecurityError", "WebRTC is blocked in the page after sealing");
-  assert.equal(udpHits.length, 0, "no WebRTC packet left the page");
+  assert.equal(mainUdp.hits.length, 0, "no WebRTC packet left the page");
   assert.equal(sideHits.length, 0, "no speculative or preconnect connection left the page");
   assert.ok(guarded.guardBlocked >= 2, `page-level blocks counted (${guarded.guardBlocked})`);
   assert.equal(guarded.requests, 0);
@@ -252,10 +260,10 @@ await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen
     const Peer = frame.contentWindow && frame.contentWindow.RTCPeerConnection;
     if (typeof Peer !== "function") return "no frame WebRTC";
     try { const peer = new Peer({ iceServers: [{ urls: `stun:127.0.0.1:${port}` }] }); peer.createDataChannel("x"); await peer.setLocalDescription(await peer.createOffer()); return "created"; } catch (error) { return error.name; }
-  }, udpPort);
+  }, frameUdp.port);
   await egress.waitForTimeout(1500);
-  console.log(`  ${name}: known limit, WebRTC through a frame's copy: ${frameRtc}; packets reaching the network: ${udpHits.length}`);
-  udpHits.length = 0;
+  console.log(`  ${name}: known limit, WebRTC through a frame's copy: ${frameRtc}; packets reaching the network: ${frameUdp.hits.length}`);
+  mainUdp.close(); frameUdp.close();
   await egress.context().close();
 
   // R16: counting starts with enforcement, so an attempt inside the self-test window is counted.
@@ -276,6 +284,6 @@ await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen
   for (const socket of upgraded) socket.destroy();
   server.closeAllConnections();
   await new Promise((resolveClose) => server.close(resolveClose));
-  udp.close(); side.close();
+  side.close();
   rmSync(temp, { recursive: true, force: true });
 }
