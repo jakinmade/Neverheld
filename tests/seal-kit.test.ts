@@ -156,7 +156,7 @@ test("release cold check validates an Ed25519 signed record and signed release t
     writeFileSync(file, JSON.stringify(seal));
     const good = spawnSync("bash", ["scripts/coldcheck-release.sh", file, publicKey], { encoding: "utf8" });
     assert.equal(good.status, 0, good.stdout + good.stderr);
-    assert.match(good.stdout, /signature: Signature Verified Successfully/);
+    assert.match(good.stdout, /release signature\s+: Signature Verified Successfully/);
     const altered = structuredClone(seal);
     altered.record.release.manifest_sha256 = "c".repeat(64);
     writeFileSync(file, JSON.stringify(altered));
