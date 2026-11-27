@@ -15,7 +15,7 @@ Source baseline: EXEVVIA `main`, commit `17d4e4f90857eb63cf528f92567f8bd3322516e
 ## Not yet complete
 - One-tag mode cannot inspect or test application workers, service workers, existing frames or other contexts; worker evidence defaults to not declared.
 - One-tag mode has no file fingerprints unless the host uses the API.
-- PDF/QR output is not part of the small browser runtime; current output is JSON and readable HTML. A separate proof-rendering adapter remains to be added.
+- The one-tag runtime downloads JSON and readable HTML. QR/readable/offline-verifier packaging is a separate Node-side adapter (`npm run render:proof`) so the small browser runtime stays below 15 KB compressed. A PDF renderer remains outstanding.
 - The public-key file is a placeholder. No NEVERHELD signing key exists yet. Do not make a signed-release claim until a dedicated keypair is created and the private key is stored as a GitHub Actions secret.
 - Browser verifier does not validate an RFC 3161 trust chain.
 - No independent security audit or US counsel wording review has been completed.
