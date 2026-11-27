@@ -20,6 +20,8 @@ echo "recomputed record hash : $R"
 [ "$(jq -r '.seal_format_version' "$F")" = "2" ] || { echo "unsupported release seal format"; exit 1; }
 [ "$(jq -r '.canonicalization' "$F")" = "RFC 8785 (JCS)" ] || { echo "unexpected canonicalisation"; exit 1; }
 [ "$(jq -r '.signature.alg' "$F")" = "Ed25519" ] || { echo "unexpected signature algorithm"; exit 1; }
+[ "$(jq -r '.signature.key_id' "$F")" = "$(jq -r '.record.key_id' "$F")" ] || { echo "signature key id does not match the signed record"; exit 1; }
+[ "$(jq -r '.signature.signed_message' "$F")" = "content_hash.value (ASCII hex)" ] || { echo "unexpected signature message"; exit 1; }
 { printf '\x30\x2a\x30\x05\x06\x03\x2b\x65\x70\x03\x21\x00'; printf '%s' "$PUB" | tr '_-' '/+' | base64 -d; } > "$T/pub.der"
 openssl pkey -pubin -inform DER -in "$T/pub.der" -out "$T/pub.pem" >/dev/null
 printf '%s' "$H" > "$T/msg.txt"
@@ -31,6 +33,7 @@ TYPE=$(jq -r '.timestamps[0].type // empty' "$F")
 TS=$(jq -er '.timestamps[0].time' "$F")
 jq -cjS '.timestamps[0] | {content_hash,key_id,time,type}' "$F" > "$T/ts.txt"
 [ "$(jq -r '.timestamps[0].content_hash' "$F")" = "$H" ] || { echo "timestamp names a different hash"; exit 1; }
+[ "$(jq -r '.timestamps[0].key_id' "$F")" = "$(jq -r '.record.key_id' "$F")" ] || { echo "timestamp key id does not match the release key"; exit 1; }
 jq -er '.timestamps[0].signature_b64' "$F" | base64 -d > "$T/ts.bin"
 echo -n "signed release time     : "
 openssl pkeyutl -verify -pubin -inkey "$T/pub.pem" -rawin -in "$T/ts.txt" -sigfile "$T/ts.bin"

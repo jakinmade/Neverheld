@@ -18,6 +18,9 @@
   },
   "include": [
     "lib/**/*.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "scripts/**/*.ts",
+    "scripts/**/*.mts",
+    "types/**/*.d.ts"
   ]
 }

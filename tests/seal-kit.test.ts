@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { spawnSync } from "node:child_process";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import JSZip from "jszip";
 import { gzipSync } from "node:zlib";
 import {
-  buildProof, controlAnswers, evidenceFromBody, proofJson, sealPolicy, verifyProof,
+  buildProof, canonicalJson, controlAnswers, evidenceFromBody, proofJson, sealPolicy, verifyProof,
   CONTROL_RULESET, SEAL_KIT_VERSION, type SealStatus,
 } from "../lib/seal-kit";
 
@@ -94,6 +95,73 @@ test("optional proof renderer packages QR, readable proof and offline verifier w
     assert.match(html, new RegExp(proof.proofHash.value));
     const bundle = readFileSync("public/neverheld/neverheld.min.js");
     assert.ok(gzipSync(bundle, { level: 9 }).length < 15 * 1024, "the optional renderer must not inflate the core script-tag runtime");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+const haveColdTools = ["jq", "sha256sum", "openssl"].every((tool) => spawnSync("sh", ["-c", `command -v ${tool}`]).status === 0);
+
+test("command-line verifier validates a proof and the hash-only cold check detects edits", async (context) => {
+  if (!haveColdTools) context.skip("jq, sha256sum or openssl unavailable");
+  const proof = await buildProof({ status: status(), files, application, release, workers });
+  const dir = mkdtempSync(join(tmpdir(), "neverheld-cli-"));
+  const input = join(dir, "proof.json");
+  const changed = join(dir, "changed.json");
+  try {
+    writeFileSync(input, proofJson(proof));
+    const verifier = spawnSync(process.execPath, ["--import", "tsx", "scripts/verify-proof.mts", input], { encoding: "utf8" });
+    assert.equal(verifier.status, 0, (verifier.stdout || "") + (verifier.stderr || ""));
+    assert.match(verifier.stdout, /PROOF VALID/);
+    const cold = spawnSync("bash", ["scripts/coldcheck-proof.sh", input], { encoding: "utf8" });
+    assert.equal(cold.status, 0, cold.stdout + cold.stderr);
+    assert.match(cold.stdout, /hash unchanged/);
+    const edited = JSON.parse(proofJson(proof));
+    edited.body.seal.pageRequestsSinceSealing = 1;
+    writeFileSync(changed, JSON.stringify(edited));
+    const tampered = spawnSync("bash", ["scripts/coldcheck-proof.sh", changed], { encoding: "utf8" });
+    assert.notEqual(tampered.status, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("release cold check validates an Ed25519 signed record and signed release time", { skip: !haveColdTools && "jq, sha256sum or openssl unavailable" }, () => {
+  const pair = generateKeyPairSync("ed25519");
+  const publicKey = pair.publicKey.export({ format: "der", type: "spki" }).subarray(-32).toString("base64");
+  const record = {
+    seal_format_version: "2",
+    key_id: "test-neverheld-key",
+    release: { id: "neverheld-test", manifest_sha256: "b".repeat(64), manifest_files: 3 },
+  };
+  const hash = createHash("sha256").update(canonicalJson(record)).digest("hex");
+  const stamp = { type: "self-asserted", content_hash: hash, time: "2026-11-27T21:00:00Z", key_id: record.key_id };
+  const seal = {
+    seal_format_version: "2",
+    canonicalization: "RFC 8785 (JCS)",
+    record,
+    content_hash: { alg: "SHA-256", value: hash },
+    signature: {
+      alg: "Ed25519", key_id: record.key_id, signed_message: "content_hash.value (ASCII hex)",
+      value_b64: sign(null, Buffer.from(hash, "ascii"), pair.privateKey).toString("base64"),
+    },
+    timestamps: [{
+      ...stamp,
+      signature_b64: sign(null, Buffer.from(canonicalJson(stamp)), pair.privateKey).toString("base64"),
+    }],
+  };
+  const dir = mkdtempSync(join(tmpdir(), "neverheld-release-"));
+  const file = join(dir, "release-seal.json");
+  try {
+    writeFileSync(file, JSON.stringify(seal));
+    const good = spawnSync("bash", ["scripts/coldcheck-release.sh", file, publicKey], { encoding: "utf8" });
+    assert.equal(good.status, 0, good.stdout + good.stderr);
+    assert.match(good.stdout, /signature: Signature Verified Successfully/);
+    const altered = structuredClone(seal);
+    altered.record.release.manifest_sha256 = "c".repeat(64);
+    writeFileSync(file, JSON.stringify(altered));
+    const bad = spawnSync("bash", ["scripts/coldcheck-release.sh", file, publicKey], { encoding: "utf8" });
+    assert.notEqual(bad.status, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
