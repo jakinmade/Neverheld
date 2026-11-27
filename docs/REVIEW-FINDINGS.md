@@ -131,3 +131,8 @@ All four technical findings were valid. Regression tests R18 to R21.
 | 3.5 | Housekeeping | Findings and PR description out of date | Round 3 recorded here; PR description updated at merge |
 
 Final position: this is an engineering release candidate with honest, bounded evidence. It is not an audited security product.
+
+## Post-merge fix (0.3.2), found while deploying the public demo
+| # | Severity | Finding | Status |
+|---|---|---|---|
+| 4.1 | Medium | Chromium writes a resource-timing entry for an image the policy refused, so a blocked tracking pixel was counted as a successful request. That made answers "not supported" on any page with a pixel. It erred on the safe side, but was wrong | A timing entry counts as a request only if no policy violation names its address (or origin). Regression test R22 runs in all three browsers |

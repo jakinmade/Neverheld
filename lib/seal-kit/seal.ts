@@ -309,16 +309,28 @@ function keepLinksInNewTabs() {
 
 function startCounting(sealedAt: number) {
   const seen = new Set<PerformanceEntry>();
+  // Some browsers also write a timing entry for a load the policy refused (Chromium does for
+  // images). Such a load is a blocked attempt, not a request, so an entry is counted only if no
+  // violation names its address (or, where the browser reports only the origin, its origin).
+  const refused = new Set<string>();
+  const wasRefused = (url: string) => {
+    if (refused.has(url)) return true;
+    try { return refused.has(new URL(url).origin); } catch { return false; }
+  };
   const record = (entry: PerformanceEntry) => {
     if (seen.has(entry) || entry.startTime < sealedAt || isLocalAddress(entry.name)) return;
     seen.add(entry);
-    update({ requests: status.requests + 1, log: [...status.log, `Request: ${entry.name}`].slice(-20) });
+    setTimeout(() => {
+      if (wasRefused(entry.name)) return;
+      update({ requests: status.requests + 1, log: [...status.log, `Request: ${entry.name}`].slice(-20) });
+    }, 250);
   };
   if (typeof PerformanceObserver !== "undefined") {
     new PerformanceObserver((list) => list.getEntries().forEach(record)).observe({ type: "resource", buffered: true });
   }
   document.addEventListener("securitypolicyviolation", (event) => {
     if (event.blockedURI.includes(PROBE_PATH)) return;
+    if (event.blockedURI) refused.add(event.blockedURI);
     update({ blocked: status.blocked + 1, log: [...status.log, `Blocked: ${event.blockedURI || event.violatedDirective}`].slice(-20) });
   });
 }
