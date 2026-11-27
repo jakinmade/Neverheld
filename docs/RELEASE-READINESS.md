@@ -8,8 +8,9 @@ Status at 27 Nov 2026 (branch `build/phase-1-core-extraction`). ✅ done and tes
 | Independent code review with severity-ranked findings | ✅ `docs/REVIEW-FINDINGS.md` |
 | Service worker and pre-seal worker gaps detected, failing closed | ✅ R1, R2 |
 | File fingerprints in the one-tag path; honest wording when none | ✅ R4, R5 |
-| One-tag waits for `load`; Next.js integration with no other code change | ✅ Chromium locally; ⏳ Firefox and WebKit in CI |
-| Plain HTML scenarios in Chromium, Firefox and WebKit | ✅ Chromium; ⏳ Firefox and WebKit in CI |
+| One-tag waits for `load`; Next.js integration with no other code change | ✅ Chromium, Firefox and WebKit in CI |
+| Plain HTML scenarios in Chromium, Firefox and WebKit | ✅ all three in CI (WebKit's offline-verifier step runs without network emulation; see below) |
+| Manual check: open `verify.html` from disk in real Safari with Wi-Fi off and verify a proof | 🔒 John (needs a Mac or iPhone; Playwright's WebKit offline mode cannot read local files) |
 | Verifier separates four assurance levels | ✅ R6 |
 | Verifier CSP well-formed | ✅ R7 |
 | QR versus offline wording honest; hosted verifier must be HTTPS | ✅ |

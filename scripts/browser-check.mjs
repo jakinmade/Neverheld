@@ -117,7 +117,10 @@ try {
   const offline = await browser.newContext();
   const verifyPage = await offline.newPage();
   await verifyPage.goto(pathToFileURL(resolve(verifierPath)).href);
-  await offline.setOffline(true);
+  // Playwright's WebKit offline emulation also fails local file reads ("I/O read operation
+  // failed"), so WebKit runs this step with the verifier's own no-network policy only. A manual
+  // offline check in real Safari is listed in docs/RELEASE-READINESS.md.
+  if (name !== "webkit") await offline.setOffline(true);
   await verifyPage.locator("#proof").setInputFiles(proofPath);
   await verifyPage.waitForFunction(() => document.querySelector(".verdict"));
   console.log(`  ${name}: verifier (file://, isSecureContext=${await verifyPage.evaluate(() => isSecureContext)}, subtle=${await verifyPage.evaluate(() => Boolean(crypto.subtle))}): ${await verifyPage.locator(".verdict").textContent()}`);
