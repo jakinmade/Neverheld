@@ -77,7 +77,7 @@ test("standalone bundle builds under 15 KB gzip", () => {
   assert.match(bundle.toString(), /Neverheld/);
 });
 
-test("kit version", () => assert.equal(SEAL_KIT_VERSION, "0.3.1"));
+test("kit version", () => assert.equal(SEAL_KIT_VERSION, "0.3.2"));
 
 // --- Round 2: regression tests for the second independent review (docs/REVIEW-FINDINGS.md) ---
 
