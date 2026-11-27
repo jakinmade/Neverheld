@@ -1,0 +1,1 @@
+import {readFileSync,statSync} from "node:fs";import {gzipSync} from "node:zlib";const p="public/neverheld/neverheld.min.js";const n=gzipSync(readFileSync(p),{level:9}).length;console.log(`Standalone kit: ${statSync(p).size} bytes; gzip: ${n} bytes`);if(n>=15*1024)throw Error("Kit exceeds the 15 KB compressed target.");
