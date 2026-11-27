@@ -1,32 +1,40 @@
-# Build status — initial extraction
+# Build status — standalone product baseline
 
-Date: 27 November 2026. Working branch: `build/phase-1-core-extraction`.
+NEVERHELD is being developed as a standalone, licensable browser SDK/software product. It must be distributable and usable without EXEVVIA. EXEVVIA is the live reference/demo, not a runtime dependency.
 
-Source baseline: EXEVVIA `main`, commit `17d4e4f90857eb63cf528f92567f8bd3322516e0` (v1.0.29). The core seal, proof, Control Answers, JCS and verifier modules are extracted into this independent repository. EXEVVIA is not changed.
+The initial core extraction used EXEVVIA v1.0.29, commit `17d4e4f90857eb63cf528f92567f8bd3322516e0`. Verify code provenance/comments against that precise baseline.
 
-## In this phase
-- Independent TypeScript package and build.
-- Dependency-free browser bundle.
-- Opt-in `data-auto-seal` script-tag installation with a status/NOPE display.
-- Self-contained offline proof verifier and plain HTML example.
-- Optional QR proof-pack renderer that packages the JSON proof, readable HTML proof and offline verifier together.
-- Command-line proof verifier and hash/signature cold-check scripts.
-- Tests for restrictive policy, deterministic six-pack answers, worker evidence fail-closed behaviour, proof tamper detection and bundle size.
-- Explicit security boundary documentation.
+## Implemented in current branch
 
-## Not yet complete
-- One-tag mode cannot inspect or test application workers, service workers, existing frames or other contexts; worker evidence defaults to not declared.
-- One-tag mode has no file fingerprints unless the host uses the API.
-- The one-tag runtime downloads JSON and readable HTML. QR/readable/offline-verifier packaging is a separate Node-side adapter (`npm run render:proof`) so the small browser runtime stays below 15 KB compressed. A PDF renderer remains outstanding.
-- The public-key file is a placeholder. No NEVERHELD signing key exists yet. Do not make a signed-release claim until a dedicated keypair is created and the private key is stored as a GitHub Actions secret.
-- Browser verifier does not validate an RFC 3161 trust chain.
-- No independent security audit or US counsel wording review has been completed.
-- Not merged, deployed or integrated back into EXEVVIA.
+- Independent TypeScript seal/proof/Control Answer/JCS source.
+- One-file browser runtime exposed as `window.Neverheld`.
+- Opt-in one-tag install, fail-closed self-test, page request and CSP-blocked-attempt counters.
+- Canonical JSON proof and six deterministic Control Answer packs.
+- Readable HTML proof and separate QR/ZIP renderer with offline verifier file.
+- CLI proof verifier and proof/release cold-check scripts.
+- Plain HTML example, Next.js integration notes, documentation and pinned CI.
+- Chromium browser test.
 
-## Release gates
-1. Typecheck, tests and reproducible build pass; gzip below 15 KB.
-2. Real-browser tests on supported browsers, including offline and worker workflows.
-3. Independent security review with no unresolved high/critical findings.
-4. Dedicated signing key, public key publication and key-rotation procedure.
-5. Counsel review of US Control Answers wording.
-6. Pinned integration into EXEVVIA with regression tests.
+## Latest confirmed CI baseline
+
+Pinned-actions workflow: https://github.com/jakinmade/Neverheld/actions/runs/46070302669
+
+TypeScript passed; 10 automated tests passed; Chromium browser checks passed. Runtime: 24,248 bytes minified / 9,216 bytes gzip, under the 15 KB target.
+
+## Known differences / outstanding items against v0.5
+
+- One-tag proofs currently contain no file fingerprints. API callers can supply fingerprints.
+- Worker evidence defaults to `not-declared`; a host-set `configured` attribute is a declaration, not an independent worker test. The Control Answer wording references a live worker seal check that is not yet implemented.
+- The QR currently points to a hosted verifier URL; the ZIP separately contains an offline verifier HTML file.
+- No dedicated NEVERHELD release keypair, populated public key, release manifest/signing workflow, reproducible double-build or trusted RFC 3161 timestamp validation.
+- Browser automation is Chromium-only; no real Next.js fixture or Firefox/WebKit coverage yet.
+- No production standalone distribution archive or committed lockfile verified yet.
+- PDF proof renderer remains optional/outstanding; current outputs are JSON, readable HTML and a QR/ZIP proof pack.
+- No independent security audit or US counsel review has been completed.
+- Commercial licence/ownership/provenance and third-party dependency review remains to be completed.
+
+## Scope
+
+Do not remove `unsafe-inline` in phase 1; v0.5 intentionally deferred that policy tightening. WAICT compatibility and additional control packs are phase 2. Do not modify EXEVVIA as part of standalone development unless separately requested. Its role is reference demonstration only, not runtime dependency.
+
+See `docs/CLAUDE-HANDOVER.md` and `docs/STANDALONE-SALE-READINESS.md`.
