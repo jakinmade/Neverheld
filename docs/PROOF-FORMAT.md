@@ -1,20 +1,38 @@
-# NEVERHELD proof format
+# NEVERHELD proof format (`seal-kit-proof/2`)
 
-This extraction retains the open `seal-kit-proof/1` envelope.
+```
+{ "format": "seal-kit-proof/2", "body": { ... }, "proofHash": { "alg": "SHA-256", "value": hex } }
+```
+`proofHash` is SHA-256 over the RFC 8785 (JCS) bytes of `body`. Only whole numbers are allowed, so `jq -cjS .body | sha256sum` gives the same hash.
 
-The canonical JSON contains application identity, optional release-manifest identity, seal state and time, exact policy text, self-test result, page request and blocked-attempt counts, worker evidence, optional file fingerprints, six deterministic Control Answers, explicit limits, creation time and a SHA-256 hash over the RFC 8785 canonical body.
+## Body
+| Field | Meaning |
+|---|---|
+| `application` | name, version, commit (from the host) |
+| `release` | `id`, `manifestSha256` (hash of the manifest bytes served before sealing, or null), `manifestFiles` |
+| `seal.state`, `seal.sealedAt`, `seal.selfTest` | always `sealed` / ISO time / `refused` (no proof can be built otherwise) |
+| `seal.policy` | exact CSP text enforced |
+| `seal.pageRequestsSinceSealing` | the NOPE count |
+| `seal.blockedAttemptsSinceSealing` | attempts the browser refused |
+| `seal.serviceWorker` | `none`, `registered`, `controlling` or `not-available` |
+| `seal.workers` | `{ declaration: none / blocked / not-declared, description, startedBeforeSeal, startedAfterSeal }` |
+| `filesRecording` | `observed-and-host` (inputs and drops watched) or `host-only` |
+| `files[]` | `{ name, sha256, source: file-input / drop / host, openedAfterSeal }` |
+| `controlAnswers` | ruleset id, version 2.0.0, fingerprint, six answers |
+| `limits[]`, `createdAt`, `format`, `nature` | |
 
-## Verification levels
+Changes from `/1`: `seal.workersNetwork` was replaced by `seal.workers` (an object) plus `seal.serviceWorker`; `filesRecording` was added, and each file gains `source` and `openedAfterSeal`.
 
-**Proof consistency:** the verifier recomputes the body hash and the deterministic Control Answers. This catches accidental changes and inconsistent answers. Since the page writes the proof and the hash is in the same file, a deliberate editor can change the body and recompute the hash. It does not prove that the session occurred.
+## Control Answer conditions (all must hold for "supported")
+sealed; self-test refused; policy refuses every address; NOPE count 0; no service worker registered or in control; workers declared `none` (and none seen starting before the seal) or declared `blocked`; no file opened before sealing.
 
-**Release authenticity:** with a separate release-seal file and NEVERHELD's published public key, the verifier can check the Ed25519 signature, signed release time and the release named by the proof. This authenticates released code, not an individual session.
+## Four assurance levels: never collapse them
+1. **Proof self-consistency.** The hash matches, and the Control Answers follow from the evidence. A deliberate editor can recompute both.
+2. **Signed release.** With `release-seal.json` and the published key: the release named is genuine, and its file list is the signed one.
+3. **Independent timestamp.** An RFC 3161 token, validated only by `tools/coldcheck-release.sh <seal> <key> <tsa-ca.pem>`. The browser verifier reports it as "not verified".
+4. **Session attestation.** Not provided.
 
-The current browser verifier does not validate RFC 3161 timestamp-token trust chains.
-
-
-## Command-line and cold checks
-
-- `npm run verify:proof -- NEVERHELD-proof.json` recomputes the proof hash and deterministic Control Answers. Add the signed release seal and optional release manifest to check release identity as well.
-- `npm run coldcheck:proof -- NEVERHELD-proof.json` uses `jq` and `sha256sum` to recompute the body hash only. It does not recompute Control Answers or authenticate the session.
-- `npm run coldcheck:release -- NEVERHELD-release-seal.json` uses `jq`, `sha256sum` and `openssl` to check the signed release record and self-asserted signed time. It does not validate the independent RFC 3161 TSA trust chain.
+## Tools
+- `npm run verify:proof -- proof.json [release-seal.json] [release-manifest.json]`: full check, prints the four levels.
+- `scripts/coldcheck-proof.sh proof.json`: hash only (jq and sha256sum).
+- `scripts/coldcheck-release.sh release-seal.json [public_key_b64] [tsa-ca.pem]`: signature, signed time, optional RFC 3161 (jq, sha256sum, openssl).

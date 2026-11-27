@@ -7,7 +7,8 @@ The page adds a Content Security Policy including `default-src 'none'`, `connect
 
 ## What it does not cover
 - Requests, scripts or disclosures before sealing are not counted or undone.
-- Browser extensions, other tabs, existing iframes, service workers and dedicated/shared workers are not automatically covered by the page's policy or counter. Each worker needs its own restrictive policy and a separate test.
+- Service workers and dedicated or shared workers are not covered by the page's policy or counter. NEVERHELD detects a registered or controlling service worker, and workers started after it loads; either makes the Control Answers "not supported" unless the owner has declared worker policies. Workers started before NEVERHELD loaded cannot be seen. Blob workers started after sealing take the page's policy (tested).
+- Browser extensions, other tabs, existing iframes, new windows opened by script, and browser storage read by a later unsealed visit are not covered.
 - Whole-tab navigation is not reliably prevented by this page policy. Ordinary clicked links are opened in new tabs, but script-driven navigation is not comprehensively controlled.
 - Browser vulnerabilities, hostile extensions, operating-system activity and network devices are outside page control.
 - The page writes its own session proof. The proof hash can be recomputed by someone who edits the proof. A signed release authenticates released files, not the user's session.
