@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import JSZip from "jszip";
 import { gzipSync } from "node:zlib";
 import {
   buildProof, controlAnswers, evidenceFromBody, proofJson, sealPolicy, verifyProof,
@@ -72,3 +75,26 @@ test("standalone bundle builds under 15 KB gzip", () => {
 });
 
 test("initial extraction version", () => assert.equal(SEAL_KIT_VERSION, "0.1.0"));
+
+test("optional proof renderer packages QR, readable proof and offline verifier without changing the browser bundle", async () => {
+  const proof = await buildProof({ status: status(), files, application, release, workers });
+  const dir = mkdtempSync(join(tmpdir(), "neverheld-render-"));
+  const input = join(dir, "proof.json");
+  const output = join(dir, "proof.zip");
+  try {
+    writeFileSync(input, proofJson(proof));
+    const run = spawnSync(process.execPath, ["--import", "tsx", "scripts/render-proof.ts", input, "https://example.test/neverheld/verify.html", output], { encoding: "utf8" });
+    assert.equal(run.status, 0, (run.stdout || "") + (run.stderr || ""));
+    const zip = await JSZip.loadAsync(readFileSync(output));
+    for (const name of ["NEVERHELD-proof.json", "NEVERHELD-proof.html", "NEVERHELD-proof-verifier.html", "HOW-TO-CHECK.txt"]) {
+      assert.ok(zip.file(name), name);
+    }
+    const html = await zip.file("NEVERHELD-proof.html")!.async("string");
+    assert.match(html, /<svg/);
+    assert.match(html, new RegExp(proof.proofHash.value));
+    const bundle = readFileSync("public/neverheld/neverheld.min.js");
+    assert.ok(gzipSync(bundle, { level: 9 }).length < 15 * 1024, "the optional renderer must not inflate the core script-tag runtime");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
