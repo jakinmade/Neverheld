@@ -1,5 +1,8 @@
 # NEVERHELD — standalone sale-readiness
 
+> **Status update, 27 Nov 2026 (kit 0.3.0, commit `7c9f32c` or later).** This document is the original brief and is kept for the record. Most items below are now done: see `docs/RELEASE-READINESS.md` for current status, `docs/REVIEW-FINDINGS.md` for both review rounds, and `docs/LIMITATIONS.md` for what remains outside the product's evidence. The baseline references below (`1e2440f`, run 46070302669) are historical.
+
+
 ## Product and sales route
 
 NEVERHELD is a standalone, licensable browser SDK/software kit, not a hosted SaaS dependency and not an EXEVVIA feature. Buyers should be able to embed the one-file runtime into their own application and validate each proof offline. EXEVVIA is a useful live reference/demo and provenance source, but the kit must not need EXEVVIA at runtime.
@@ -10,7 +13,7 @@ The v0.5 product spec identifies likely first buyer groups as client-side securi
 
 The branch has a one-file browser runtime, seal self-test, page request and blocked-attempt counters, canonical JSON proof, six deterministic Control Answer packs, readable HTML proof, a separate QR/ZIP proof renderer, an offline verifier, CLI/cold-check scripts, plain HTML example and Chromium CI.
 
-Latest verified run at the current code baseline: https://github.com/jakinmade/Neverheld/actions/runs/46070302669
+Original baseline run (historical): https://github.com/jakinmade/Neverheld/actions/runs/46070302669. For the current run, see the pull request checks.
 
 This establishes a working technical baseline. It is not yet a complete distributable release or independently audited security product.
 

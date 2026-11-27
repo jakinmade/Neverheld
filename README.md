@@ -14,7 +14,7 @@ The delivered browser file is built and published as `public/neverheld/neverheld
 
 The browser page applies its policy, runs a self-test and displays a NOPE/request counter. If the browser does not confirm enforcement, the page remains blocked. The delivered browser runtime has no runtime package dependencies; the buyer should not need to build this repository to install the released file.
 
-The tag waits for the page's `load` event before sealing. It records whether a service worker is present, counts workers started before and after sealing, and fingerprints files chosen in file inputs or dropped on the page. Options: `data-application`, `data-version`, `data-commit`, `data-release-id`, `data-release-manifest-url`, `data-workers-network="none|blocked"` (your declaration; it is never treated as tested) and `data-observe-files="off"`. Without a worker declaration, every Control Answer is "not supported". See `docs/INSTALL.md` and `docs/API.md`.
+The tag waits for the page's `load` event before sealing. It records whether a service worker is present, counts workers started before and after sealing, and fingerprints files chosen in file inputs or dropped on the page. Options: `data-application`, `data-version`, `data-commit`, `data-release-id`, `data-release-manifest-url`, `data-workers-network="none|blocked"` (your declaration; it is never treated as tested) and `data-observe-files="off"`, and `data-connection-allowlist="check"`. WebRTC, connection hints and DNS lookups are outside the browser's Content Security Policy; NEVERHELD blocks them inside the page (page-level, with measured limits: see `docs/SECURITY-BOUNDARIES.md`). A buyer's strongest control there is a `Connection-Allowlist` response header (Chrome 152 and later). Without a worker declaration, every Control Answer is "not supported". See `docs/INSTALL.md` and `docs/API.md`.
 
 ## Proof and verification
 
@@ -34,6 +34,6 @@ See `docs/LIMITATIONS.md`, `docs/SECURITY-BOUNDARIES.md`, `docs/PROOF-FORMAT.md`
 
 ## Development
 
-`npm ci`, then `npm run check` (typecheck, unit and release tests, size, real-browser checks). `BROWSERS=chromium,firefox,webkit npm run test:browser` and `npm run test:nextjs` run the browser matrix and the Next.js fixture. `npm run package` builds `dist/neverheld-<version>.tar.gz`; `npm run repro:check` confirms that two clean builds are byte-identical; `npm run sign:release -- dist/neverheld-<version>/release-manifest.json` signs it (key kept outside the repository). Runtime size: about 11 KB gzip, under the 15 KB target.
+`npm ci`, then `npm run check` (typecheck, unit and release tests, size, real-browser checks). `BROWSERS=chromium,firefox,webkit npm run test:browser` and `npm run test:nextjs` run the browser matrix and the Next.js fixture. `npm run package` builds `dist/neverheld-<version>.tar.gz`; `npm run repro:check` confirms that two clean builds are byte-identical; `npm run sign:release -- dist/neverheld-<version>/release-manifest.json` signs it (key kept outside the repository). Runtime size: about 12.5 KB gzip, under the 15 KB target.
 
 The published public-key file is still a placeholder pending a dedicated NEVERHELD release keypair. Never reuse another product's signing key.

@@ -29,9 +29,14 @@ Put it at the end of `<body>`. The tag:
 | `data-workers-network` | Your declaration: `none` (this page starts no workers) or `blocked` (your workers are served with their own CSP refusing network access). Omitted means `not-declared`, and every Control Answer is "not supported" |
 | `data-workers-description` | Free text explaining your declaration |
 | `data-observe-files="off"` | Stop fingerprinting files from file inputs and drops |
+| `data-connection-allowlist="check"` | Before sealing, make one request to the page's own address and record whether it is served with a `Connection-Allowlist` header |
+
+## Recommended hardening: a Connection-Allowlist header
+The page's Content Security Policy does not govern WebRTC, DNS prefetch or navigations. In Chrome 152 and later, a `Connection-Allowlist` response header served with the page enforces a network allowlist for those too. Serve it from your server (a script tag cannot set it), allowing only what the page needs before sealing, and test it in your app. See Chrome's announcement, "Connection allowlists: Secure your web application's network access", for the syntax. NEVERHELD records whether the header is present; it does not test the header.
 
 ## Things that must be true for a clean proof
 - Everything the app needs is loaded by the `load` event. Lazy chunks, late fonts and analytics loaded afterwards are refused (they show as "blocked attempts").
+- No WebSocket, EventSource or WebRTC connection is left open when the page seals. Open ones make the answers "not supported", because the policy does not close them.
 - No service worker is registered for the page's scope. If your app uses one, the answers will be "not supported", by design.
 - Workers are either not used, or started from `blob:` after sealing, or served with their own blocking policy and declared as `blocked`.
 

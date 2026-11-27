@@ -4,7 +4,7 @@
 **Reviewer:** Claude (Anthropic AI model), 27 Nov 2026, at John Akinmade's request. This is an AI-assisted engineering review, **not an independent security audit**.
 **Method:** code reading, then reproduction in a real browser before any change. Each confirmed finding has a regression test; the test IDs (R1 to R9) appear in `tests/seal-kit.test.ts`, `tests/release.test.ts`, `scripts/browser-check.mjs` and `scripts/nextjs-check.mjs`.
 
-Line numbers refer to `c250ca5`.
+Round 1 line numbers refer to `c250ca5`; round 2 line numbers refer to `2a5f411`.
 
 ## Summary
 
@@ -72,3 +72,46 @@ Line numbers refer to `c250ca5`.
 - Self-test probes `fetch` only. Other directives are covered by the strict allowlist check on the policy text (`proof.ts:67-83`), which looked correct.
 - `keepLinksInNewTabs` opens link URLs in a new tab. A link URL can carry data; this is covered by the new-window limit.
 - Large files are read into memory to hash them. Acceptable for documents; note it for very large media.
+
+---
+
+# Round 2: second independent review (of `2a5f411`)
+
+A second reviewer checked v0.2.0. I verified each of their six findings against the code; all six were valid. Testing them also turned up two more issues, marked ★. Regression tests R10 to R17.
+
+| # | Severity | Finding | Status |
+|---|---|---|---|
+| 2.1 | **Critical** | CSP does not govern WebRTC, DNS prefetch, preconnect or speculative loading, yet the Control Answers said the page "sent nothing by network connection or resource request" | Measured per browser; page-level blocking added; wording bounded to what was measured (R10, R12, R15). Residual limits documented |
+| 2.1★ | **Critical** | A WebSocket (or WebRTC) connection opened before sealing stays open and keeps sending after sealing (reproduced: frame received with the count at 0) | Detected (`connectionsOpenAtSeal`); any open connection makes answers "not supported" (R11, R15) |
+| 2.1★ | **High** | The runtime file began with the banner "Not one packet escaped", an unqualified claim the handover forbids | Removed; test asserts its absence (R10) |
+| 2.2 | High | `files.ts:28-40`: `openedAfterSeal` was taken when the host called the API, not when the file was opened | `openedAt` is required for host fingerprints and compared with the seal time when the proof is written (R14) |
+| 2.3 | High | `control-answers.ts:51-57`: an untested worker declaration gave plain "supported" | New result `supported-if-declaration-holds`, with an explicit sentence; editing it to "supported" fails verification (R13) |
+| 2.4 | Medium | `seal.ts:239-251`: counting started after the self-test and service-worker check, so attempts in that window were missed | Counting, guards and the sealing time all start in the same task as the policy (R16) |
+| 2.5 | Medium | QR renderer not in the buyer archive | `tools/neverheld-render-proof.cjs`, one bundled file, plus THIRD-PARTY-LICENSES.txt (all MIT, ISC or Zlib; jszip used under MIT). Tested from the unpacked archive with no node_modules (R17) |
+| 2.6 | Medium | Handover and sale-readiness documents out of date | Status banners added; historical references labelled; readiness checklist updated |
+
+## 2.1 in detail: what the one-tag model can and cannot do
+
+A script tag cannot set response headers. So it cannot use Chrome's `Connection-Allowlist`, the only browser-enforced control covering WebRTC, DNS prefetch and navigations, and that is Chrome 152+ only. What a page *can* do, all page-level and evadable, now runs at sealing:
+- wrap `RTCPeerConnection` (and the `webkit` prefix) and `WebTransport` when NEVERHELD loads, and throw `SecurityError` after sealing;
+- remove speculation rules present at sealing, and remove speculation rules and connection hints added after sealing;
+- set `x-dns-prefetch-control: off`;
+- optionally record whether the page is served with a `Connection-Allowlist` header.
+
+Measured in CI (run linked in the readiness checklist):
+
+| Route after sealing | Chromium | Firefox | WebKit |
+|---|---|---|---|
+| WebRTC in the page | blocked | blocked | blocked |
+| Speculation-rules prefetch | blocked | blocked | blocked (not supported) |
+| Preconnect hint | blocked | blocked | **1 TCP connection** |
+| WebRTC via an iframe's own copy | **leaks** | **leaks** | **leaks** |
+| Open pre-seal WebSocket | detected → not supported | detected | detected |
+| DNS prefetch | not measured | not measured | not measured |
+
+**Residual limits:**
+- WebRTC through a frame's copy cannot be closed by page code. Frames can be reached through `window[0]`, which no wrapper can intercept, and `frame-src 'none'` does not stop `about:blank` frames.
+- WebKit preconnects synchronously on insertion.
+- These are stated in the proof limits, the Control Answer wording, `LIMITATIONS.md` and `SECURITY-BOUNDARIES.md`. The claim is now: *browser-enforced CSP for the listed routes, plus page-level blocking for WebRTC and hints with stated gaps*.
+
+**Decision for John (recorded in the readiness checklist):** whether a Chrome host must serve `Connection-Allowlist` before answers can be "supported". At present it is recorded only.

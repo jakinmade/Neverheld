@@ -102,7 +102,7 @@ test("R11 a connection still open at sealing makes every answer unsupported", as
 test("R12 page-level blocks are reported, and the Connection-Allowlist state is stated", async () => {
   const proof = await buildProof({ status: status({ guardBlocked: 2, connectionAllowlist: "present" }), files, application, release, workers });
   assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "supported"));
-  assert.match(proof.body.controlAnswers.answers[0].answer, /blocked, inside the page, 2 WebRTC/);
+  assert.match(proof.body.controlAnswers.answers[0].answer, /blocked or removed, inside the page, 2 WebRTC/);
   assert.match(proof.body.controlAnswers.answers[0].answer, /Connection-Allowlist header[^.]*; this session did not test that header/);
 });
 

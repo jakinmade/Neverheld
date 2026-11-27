@@ -1,6 +1,6 @@
 # Release-readiness checklist
 
-Status at 27 Nov 2026 (branch `build/phase-1-core-extraction`). ✅ done and tested · ⏳ waiting on CI · 🔒 John's decision · ⚖️ counsel or auditor
+Status at 27 Nov 2026, kit 0.3.0, commit `7c9f32c` or later (branch `build/phase-1-core-extraction`). ✅ done and tested · ⏳ waiting on CI · 🔒 John's decision · ⚖️ counsel or auditor
 
 ## Engineering
 | Item | Status |
@@ -19,6 +19,12 @@ Status at 27 Nov 2026 (branch `build/phase-1-core-extraction`). ✅ done and tes
 | Release archive, manifest, SHA256SUMS, types, docs; no build step for buyers | ✅ `npm run package` |
 | Two clean builds give a byte-identical archive | ✅ `npm run repro:check` |
 | Release signing and RFC 3161 mechanics (ephemeral key, local test TSA) | ✅ `tests/release.test.ts` |
+| Network routes outside CSP measured per browser; claims bounded to what was measured | ✅ R10–R16; table in `SECURITY-BOUNDARIES.md` |
+| Counting starts at the enforcement boundary | ✅ R16 |
+| File opening time from the host API | ✅ R14 |
+| Declared-blocked workers give "supported if the declaration holds" | ✅ R13 (decided 27 Nov 2026) |
+| QR proof renderer in the buyer archive, no npm install, third-party licences included | ✅ R17 |
+| DNS prefetch measured | ⏳ needs a DNS test harness (not done) |
 | Self-contained demo host | ✅ `examples/nextjs-app` plus the plain HTML example |
 
 ## Before the first signed release
@@ -26,7 +32,7 @@ Status at 27 Nov 2026 (branch `build/phase-1-core-extraction`). ✅ done and tes
 |---|---|
 | Generate the dedicated NEVERHELD Ed25519 key offline; store it outside GitHub; publish the public key in `release/release-public-key.json`; agree rotation | 🔒 |
 | Choose an independent TSA (for example a commercial TSA, or FreeTSA for a pilot) and keep its CA certificate with the release | 🔒 |
-| Decide whether `declared-blocked` workers may yield "supported" (currently yes, with untested wording) | 🔒 ⚖️ |
+| Decide whether to require a `Connection-Allowlist` header from hosts for "supported" in Chrome (currently recorded only) | 🔒 |
 | Name, domain and trademark check for "NEVERHELD" | 🔒 |
 | Merge PR #1 | 🔒 (not done by Claude) |
 

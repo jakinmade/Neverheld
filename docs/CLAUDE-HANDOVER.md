@@ -1,5 +1,8 @@
 # NEVERHELD — Claude handover brief
 
+> **Status update, 27 Nov 2026 (kit 0.3.0, commit `7c9f32c` or later).** This document is the original brief and is kept for the record. Most items below are now done: see `docs/RELEASE-READINESS.md` for current status, `docs/REVIEW-FINDINGS.md` for both review rounds, and `docs/LIMITATIONS.md` for what remains outside the product's evidence. The baseline references below (`1e2440f`, run 46070302669) are historical.
+
+
 **Purpose:** independent technical review and completion of NEVERHELD as a standalone, licensable browser SDK/software product.
 
 **Repository:** `jakinmade/Neverheld`  

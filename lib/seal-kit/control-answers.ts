@@ -63,8 +63,8 @@ export const CONTROL_RULESET = {
     "declared-blocked": "The application owner declared that the page's background workers are served with their own rule refusing network access; this session did not test that declaration.",
   } as Record<string, string>,
   guardNote: {
-    zero: "NEVERHELD also blocks, inside the page, WebRTC and WebTransport connections and speculative or connection hints started after sealing; none was attempted. That blocking is done by the page, not enforced by the browser, and code written to get round it could do so.",
-    nonZero: "NEVERHELD also blocked, inside the page, {guardBlocked} WebRTC, WebTransport, speculative or connection-hint attempt(s) after sealing. That blocking is done by the page, not enforced by the browser, and code written to get round it could do so.",
+    zero: "NEVERHELD also blocks, inside the page, WebRTC and WebTransport connections started after sealing and removes speculative and connection hints added after sealing; none was attempted. That blocking is done by the page, not enforced by the browser: code written to get round it could do so, and Safari (WebKit) opens a preconnect connection before the hint can be removed.",
+    nonZero: "NEVERHELD also blocked or removed, inside the page, {guardBlocked} WebRTC, WebTransport, speculative or connection-hint attempt(s) after sealing. That blocking is done by the page, not enforced by the browser: code written to get round it could do so, and Safari (WebKit) opens a preconnect connection before the hint can be removed.",
   },
   allowlistNote: {
     present: "The page was served with a Connection-Allowlist header, which Chrome 152 and later enforce for WebRTC, DNS prefetch and navigations; this session did not test that header.",
