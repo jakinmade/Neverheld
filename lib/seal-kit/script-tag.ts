@@ -55,7 +55,7 @@ async function autoSeal(tag:HTMLScriptElement) {
     applyStyle(bar,{position:"fixed",top:"10px",right:"10px",zIndex:"2147483646",display:"flex",gap:"10px",alignItems:"center",background:"#102a24",color:"white",padding:"8px 12px",border:"1px solid #4e8e79",borderRadius:"10px",font:"12px system-ui,sans-serif",boxShadow:"0 4px 18px #0002"});
     applyStyle(open,{background:"white",color:"#102a24",border:"0",borderRadius:"6px",padding:"5px 8px",cursor:"pointer"});bar.append(count,open);(document.body ?? document.documentElement).appendChild(bar);
     const panel=el("dialog"),panelTitle=el("h2","NEVERHELD session evidence"),desc=el("p"),caveat=el("p","This records this page after sealing. It does not cover activity before sealing, existing frames, service workers, extensions, other tabs or whole-tab navigation. Worker isolation is not asserted unless configured by the application.");
-    const json=el("button","Download JSON proof"),html=el("button","Download readable proof"),verify=el("button","Open offline verifier"),close=el("button","Close");
+    const json=el("button","Download JSON proof"),html=el("button","Download readable proof"),verify=el("button","Open verifier page"),close=el("button","Close");
     applyStyle(panel,{width:"min(650px,calc(100vw - 36px))",maxHeight:"80vh",overflow:"auto",border:"1px solid #cbd5e1",borderRadius:"14px",padding:"24px",font:"14px/1.5 system-ui,sans-serif",color:"#17202c"});
     for(const button of [json,html,verify,close]) applyStyle(button,{margin:"5px 8px 5px 0",padding:"8px 10px",border:"1px solid #94a3b8",borderRadius:"6px",cursor:"pointer"});
     panel.append(panelTitle,desc,caveat,json,html,verify,close);(document.body ?? document.documentElement).appendChild(panel);
