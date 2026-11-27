@@ -24,7 +24,9 @@ ${fail ? '<script>window.fetch = () => Promise.resolve({ ok: true });</script>' 
 const tag = '<script src="/neverheld.min.js" data-auto-seal data-workers-network="none"></script>';
 const scenarios = {
   // Service worker registered and in control before the seal: outside the page's rule.
-  "/sw": `<script>navigator.serviceWorker&&navigator.serviceWorker.register("/sw.js").then(()=>navigator.serviceWorker.ready).then(()=>{if(!navigator.serviceWorker.controller)location.reload()})</script>${tag}`,
+  // Registered on a setup page first, so the sealed page opens already controlled (no self-reload).
+  "/sw-setup": `<script>window.ready=navigator.serviceWorker?navigator.serviceWorker.register("/sw.js").then(()=>navigator.serviceWorker.ready).then(()=>true):Promise.resolve(false)</script>`,
+  "/sw": `${tag}`,
   // A worker started from an address after NEVERHELD loads but before the seal.
   "/worker": `${tag}<script>window.w=new Worker("/w.js")</script>`,
   // A slow image still loading when the tag runs: the seal must wait for the load event.
@@ -150,9 +152,10 @@ try {
 
   // R1: a controlling service worker can send data the page posts to it, with the count at 0.
   const swPage = await (await browser.newContext({ acceptDownloads: true })).newPage();
-  await swPage.goto(`${base}/sw`);
-  const hasServiceWorker = await swPage.evaluate(() => Boolean(navigator.serviceWorker));
+  await swPage.goto(`${base}/sw-setup`);
+  const hasServiceWorker = await swPage.evaluate(() => window.ready);
   if (hasServiceWorker) {
+    await swPage.goto(`${base}/sw`);
     await swPage.waitForFunction(() => globalThis.Neverheld?.getSealStatus().state === "sealed" && navigator.serviceWorker.controller, undefined, { timeout: 15000 });
     const swProof = await proofFrom(swPage);
     assert.ok(["registered", "controlling"].includes(swProof.body.seal.serviceWorker), `service worker recorded (${swProof.body.seal.serviceWorker})`);
