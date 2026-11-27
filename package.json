@@ -14,7 +14,10 @@
     "test:browser": "npm run build && node scripts/browser-check.mjs",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test && npm run build:check && npm run test:browser",
-    "render:proof": "tsx scripts/render-proof.ts"
+    "render:proof": "tsx scripts/render-proof.ts",
+    "verify:proof": "tsx scripts/verify-proof.mts",
+    "coldcheck:proof": "bash scripts/coldcheck-proof.sh",
+    "coldcheck:release": "bash scripts/coldcheck-release.sh"
   },
   "devDependencies": {
     "@types/node": "22.10.2",

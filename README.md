@@ -21,7 +21,7 @@ The API is exposed as `window.Neverheld` for app-specific preparation, worker ev
 ## Important
 The proof is written by the page and is not a signed session record. Its hash and recomputed Control Answers show internal consistency, not that a session happened. A signed release authenticates released files, not session events. See `docs/SECURITY-BOUNDARIES.md` and `docs/PROOF-FORMAT.md`.
 
-Run `npm run check` for typecheck, unit tests, Chromium browser checks, production build and compressed-size validation. After downloading a JSON proof, create a QR/readable/offline-verifier ZIP with `npm run render:proof -- proof.json https://your-host/neverheld/verify.html NEVERHELD-proof.zip`. Never reuse EXEVVIA's release signing key; the public-key file is a placeholder pending a separate NEVERHELD keypair.
+Run `npm run check` for typecheck, unit tests, Chromium browser checks, production build and compressed-size validation. After downloading a JSON proof, create a QR/readable/offline-verifier ZIP with `npm run render:proof -- proof.json https://your-host/neverheld/verify.html NEVERHELD-proof.zip`. Use `npm run verify:proof -- proof.json` for the full command-line proof check, or `npm run coldcheck:proof -- proof.json` for the hash-only cold check. Never reuse EXEVVIA's release signing key; the public-key file is a placeholder pending a separate NEVERHELD keypair.
 
 
 The TypeScript source uses bundler module resolution because the browser bundle is produced by esbuild; published runtime imports are bundled into the single script file. Build output is checked against the 15 KB compressed target.

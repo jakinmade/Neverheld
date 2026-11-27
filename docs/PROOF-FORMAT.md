@@ -11,3 +11,10 @@ The canonical JSON contains application identity, optional release-manifest iden
 **Release authenticity:** with a separate release-seal file and NEVERHELD's published public key, the verifier can check the Ed25519 signature, signed release time and the release named by the proof. This authenticates released code, not an individual session.
 
 The current browser verifier does not validate RFC 3161 timestamp-token trust chains.
+
+
+## Command-line and cold checks
+
+- `npm run verify:proof -- NEVERHELD-proof.json` recomputes the proof hash and deterministic Control Answers. Add the signed release seal and optional release manifest to check release identity as well.
+- `npm run coldcheck:proof -- NEVERHELD-proof.json` uses `jq` and `sha256sum` to recompute the body hash only. It does not recompute Control Answers or authenticate the session.
+- `npm run coldcheck:release -- NEVERHELD-release-seal.json` uses `jq`, `sha256sum` and `openssl` to check the signed release record and self-asserted signed time. It does not validate the independent RFC 3161 TSA trust chain.
