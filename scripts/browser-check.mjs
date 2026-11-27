@@ -6,6 +6,8 @@ import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import * as playwright from "playwright";
+import { createSocket } from "node:dgram";
+import { createServer as createTcpServer } from "node:net";
 
 // BROWSERS=chromium,firefox,webkit (default chromium). CHROMIUM_PATH points at a local Chromium
 // when the matching Playwright download is unavailable.
@@ -33,9 +35,22 @@ const scenarios = {
   "/late": `${tag}<img id="late" src="/slow.svg">`,
   // File input.
   "/files": `${tag}<input id="file" type="file">`,
+  // R15: a WebSocket opened before sealing and still open when the seal takes effect.
+  "/socket": `${tag}<script>window.ws=new WebSocket("ws://"+location.host+"/ws")</script>`,
+  // R16: an attempt made the instant the policy goes in (inside the self-test window) must be counted.
+  "/boundary": `<script>new MutationObserver(()=>{if(document.querySelector("meta[data-browser-seal]")&&!window.fired){window.fired=true;fetch("https://boundary.invalid/x").catch(()=>{})}}).observe(document.head,{childList:true})</script>${tag}`,
+  "/egress": `${tag}`,
 };
 
 const exfil = [];
+const upgraded = new Set();
+const udpHits = [];
+const udp = createSocket("udp4");
+udp.on("message", () => udpHits.push(Date.now()));
+await new Promise((ok) => udp.bind(0, "127.0.0.1", ok));
+const sideHits = [];
+const side = createTcpServer((socket) => { sideHits.push(Date.now()); socket.on("error", () => {}); socket.destroy(); });
+await new Promise((ok) => side.listen(0, "127.0.0.1", ok));
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>';
 const server = createServer((request, response) => {
   const js = (body) => { response.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-store" }); response.end(body); };
@@ -61,7 +76,13 @@ const server = createServer((request, response) => {
 const temp = mkdtempSync(join(tmpdir(), "neverheld-browser-"));
 let browser;
 try {
-  await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+  server.on("upgrade", (request, socket) => {
+  const accept = createHash("sha1").update(request.headers["sec-websocket-key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest("base64");
+  socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
+  socket.on("error", () => {});
+  upgraded.add(socket);
+});
+await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("Could not start the browser-test server.");
   const base = `http://127.0.0.1:${address.port}`;
@@ -199,13 +220,62 @@ try {
   assert.ok(fileProof.body.controlAnswers.answers.every((answer) => answer.result === "supported"), "clean declared session with a file is supported");
   await filePage.context().close();
 
+  // R15: a connection still open at sealing is recorded and fails closed.
+  const socketPage = await (await browser.newContext({ acceptDownloads: true })).newPage();
+  await socketPage.goto(`${base}/socket`);
+  await socketPage.waitForFunction(() => globalThis.Neverheld?.getSealStatus().state === "sealed", undefined, { timeout: 15000 });
+  const socketProof = await proofFrom(socketPage);
+  assert.equal(socketProof.body.seal.connectionsOpenAtSeal, 1);
+  assert.ok(socketProof.body.controlAnswers.answers.every((answer) => answer.result === "not-supported"));
+  await socketPage.context().close();
+
+  // R15: WebRTC and speculation rules after sealing are blocked in the page and counted.
+  const egress = await sealedPage("/egress");
+  const udpPort = udp.address().port, sidePort = side.address().port;
+  const rtc = await egress.evaluate(async (port) => {
+    if (typeof RTCPeerConnection !== "function") return "unavailable";
+    try { const peer = new RTCPeerConnection({ iceServers: [{ urls: `stun:127.0.0.1:${port}` }] }); peer.createDataChannel("x"); await peer.setLocalDescription(await peer.createOffer()); return "created"; }
+    catch (error) { return error.name; }
+  }, udpPort);
+  await egress.evaluate((port) => { const rules = document.createElement("script"); rules.type = "speculationrules"; rules.textContent = JSON.stringify({ prefetch: [{ source: "list", urls: [`http://127.0.0.1:${port}/spec?d=SECRET`] }] }); document.body.append(rules); }, sidePort);
+  await egress.evaluate((port) => { const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = `http://127.0.0.1:${port}/`; document.head.append(hint); }, sidePort);
+  await egress.waitForTimeout(1500);
+  const guarded = await egress.evaluate(() => globalThis.Neverheld.getSealStatus());
+  if (rtc !== "unavailable") assert.equal(rtc, "SecurityError", "WebRTC is blocked in the page after sealing");
+  assert.equal(udpHits.length, 0, "no WebRTC packet left the page");
+  assert.equal(sideHits.length, 0, "no speculative or preconnect connection left the page");
+  assert.ok(guarded.guardBlocked >= 2, `page-level blocks counted (${guarded.guardBlocked})`);
+  assert.equal(guarded.requests, 0);
+  // Documented limit, not a claim: WebRTC from another frame's copy is not reached by the page guard.
+  const frameRtc = await egress.evaluate(async (port) => {
+    const frame = document.createElement("iframe"); document.body.append(frame);
+    const Peer = frame.contentWindow && frame.contentWindow.RTCPeerConnection;
+    if (typeof Peer !== "function") return "no frame WebRTC";
+    try { const peer = new Peer({ iceServers: [{ urls: `stun:127.0.0.1:${port}` }] }); peer.createDataChannel("x"); await peer.setLocalDescription(await peer.createOffer()); return "created"; } catch (error) { return error.name; }
+  }, udpPort);
+  await egress.waitForTimeout(1500);
+  console.log(`  ${name}: known limit, WebRTC through a frame's copy: ${frameRtc}; packets reaching the network: ${udpHits.length}`);
+  udpHits.length = 0;
+  await egress.context().close();
+
+  // R16: counting starts with enforcement, so an attempt inside the self-test window is counted.
+  const boundary = await sealedPage("/boundary");
+  await boundary.waitForTimeout(300);
+  const counted = await boundary.evaluate(() => ({ fired: window.fired, log: globalThis.Neverheld.getSealStatus().log }));
+  assert.equal(counted.fired, true);
+  assert.ok(counted.log.some((line) => line.includes("boundary.invalid")), `boundary attempt counted: ${JSON.stringify(counted.log)}`);
+  await boundary.context().close();
+
   await context.close();
   await browser.close();
   browser = undefined;
-  console.log(`NEVERHELD real-browser checks (${name}): passed (seal, blocked fetch, proof download, offline verifier, tamper rejection, fail-closed self-test, service worker, workers, load wait, file fingerprints).`);
+  console.log(`NEVERHELD real-browser checks (${name}): passed (seal, blocked fetch, proof download, offline verifier, tamper rejection, fail-closed self-test, service worker, workers, load wait, file fingerprints, open connections, WebRTC and hint blocking, enforcement boundary).`);
   }
 } finally {
   if (browser) await browser.close();
+  for (const socket of upgraded) socket.destroy();
+  server.closeAllConnections();
   await new Promise((resolveClose) => server.close(resolveClose));
+  udp.close(); side.close();
   rmSync(temp, { recursive: true, force: true });
 }
