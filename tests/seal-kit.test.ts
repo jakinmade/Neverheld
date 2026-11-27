@@ -1,10 +1,73 @@
-import assert from "node:assert/strict";import test from "node:test";import {execFileSync} from "node:child_process";import {readFileSync} from "node:fs";import {gzipSync} from "node:zlib";import {buildProof,controlAnswers,evidenceFromBody,proofJson,sealPolicy,verifyProof,CONTROL_RULESET,SEAL_KIT_VERSION,type SealStatus} from "../lib/seal-kit";
-const status=(x:Partial<SealStatus>={}):SealStatus=>({state:"sealed",sealedAt:1000,sealedAtEpoch:Date.UTC(2026,10,27,18),sealedAtTime:"18:00",policy:sealPolicy(),requests:0,blocked:0,log:[],...x});
-const files=[{name:"sample.pdf",sha256:"a".repeat(64)}],application={name:"test",version:"0.1.0",commit:"test"},release={id:"test-release",manifestSha256:"b".repeat(64),manifestFiles:2},workers={network:"configured" as const,description:"Worker restrictions declared for test only."};
-test("production seal policy permits no network address",()=>{const p=sealPolicy(),d=p.split(";").map(x=>x.trim().split(/\\s+/));assert.deepEqual(d.find(([n])=>n==="default-src"),["default-src","'none'"]);assert.deepEqual(d.find(([n])=>n==="connect-src"),["connect-src","'none'"]);assert.deepEqual(d.find(([n])=>n==="form-action"),["form-action","'none'"]);for(const [n,...sources] of d){assert.ok(!sources.includes("'self'"),n);assert.ok(!sources.some(s=>/^https?:|^wss?:|^\\*|localhost|127\\.0\\.0\\.1|\\[::1\\]/i.test(s)),n);}});
-test("six control answers are deterministic",async()=>{const p=await buildProof({status:status(),files,application,release,workers}),e=evidenceFromBody({seal:p.body.seal,files}),first=JSON.stringify(await controlAnswers(e));for(let i=0;i<100;i++)assert.equal(JSON.stringify(await controlAnswers(e)),first);const a=await controlAnswers(e);assert.equal(a.answers.length,6);assert.deepEqual(a.answers.map(x=>x.pack),CONTROL_RULESET.packs.map(x=>x.id));assert.ok(a.answers.every(x=>x.result==="supported"));});
-test("worker evidence not declared fails closed",async()=>{const p=await buildProof({status:status(),files,application,release,workers:{network:"not-declared",description:"No worker evidence."}});assert.ok(p.body.controlAnswers.answers.every(x=>x.result==="not-supported"));});
-test("proof verifies offline and tampering fails",async()=>{const p=await buildProof({status:status(),files,application,release,workers});const v=JSON.parse(proofJson(p));assert.equal((await verifyProof(v)).valid,true);v.body.seal.pageRequestsSinceSealing=1;assert.equal((await verifyProof(v)).valid,false);});
-test("one observed page request makes the Control Answers unsupported",async()=>{const p=await buildProof({status:status({requests:1}),files,application,release,workers});assert.ok(p.body.controlAnswers.answers.every(x=>x.result==="not-supported"));assert.equal((await verifyProof(JSON.parse(proofJson(p)))).checks.some(x=>x.name==="No page request after sealing"&&!x.ok),true);});
-test("standalone bundle builds under 15 KB gzip",()=>{execFileSync(process.execPath,["scripts/build-kit.mjs"]);const b=readFileSync("public/neverheld/neverheld.min.js");assert.ok(gzipSync(b,{level:9}).length<15*1024);assert.match(b.toString(),/NOPE/);assert.match(b.toString(),/Neverheld/);});
-test("initial extraction version",()=>assert.equal(SEAL_KIT_VERSION,"0.1.0"));
+import assert from "node:assert/strict";
+import test from "node:test";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { gzipSync } from "node:zlib";
+import {
+  buildProof, controlAnswers, evidenceFromBody, proofJson, sealPolicy, verifyProof,
+  CONTROL_RULESET, SEAL_KIT_VERSION, type SealStatus,
+} from "../lib/seal-kit";
+
+const status = (change: Partial<SealStatus> = {}): SealStatus => ({
+  state: "sealed", sealedAt: 1000, sealedAtEpoch: Date.UTC(2026, 10, 27, 18),
+  sealedAtTime: "18:00", policy: sealPolicy(), requests: 0, blocked: 0, log: [], ...change,
+});
+const files = [{ name: "sample.pdf", sha256: "a".repeat(64) }];
+const application = { name: "test", version: "0.1.0", commit: "test" };
+const release = { id: "test-release", manifestSha256: "b".repeat(64), manifestFiles: 2 };
+const workers = { network: "configured" as const, description: "Worker restrictions declared for test only." };
+
+test("production seal policy permits no network address", () => {
+  const policy = sealPolicy();
+  const directives = policy.split(";").map((part) => part.trim().split(/\s+/));
+  assert.deepEqual(directives.find(([name]) => name === "default-src"), ["default-src", "'none'"]);
+  assert.deepEqual(directives.find(([name]) => name === "connect-src"), ["connect-src", "'none'"]);
+  assert.deepEqual(directives.find(([name]) => name === "form-action"), ["form-action", "'none'"]);
+  for (const [name, ...sources] of directives) {
+    assert.ok(!sources.includes("'self'"), name);
+    assert.ok(!sources.some((source) => /^https?:|^wss?:|^\*|localhost|127\.0\.0\.1|\[::1\]/i.test(source)), name);
+  }
+});
+
+test("six Control Answers are deterministic", async () => {
+  const proof = await buildProof({ status: status(), files, application, release, workers });
+  const evidence = evidenceFromBody({ seal: proof.body.seal, files });
+  const first = JSON.stringify(await controlAnswers(evidence));
+  for (let i = 0; i < 100; i += 1) assert.equal(JSON.stringify(await controlAnswers(evidence)), first);
+  const answers = await controlAnswers(evidence);
+  assert.equal(answers.answers.length, 6);
+  assert.deepEqual(answers.answers.map((item) => item.pack), CONTROL_RULESET.packs.map((pack) => pack.id));
+  assert.ok(answers.answers.every((item) => item.result === "supported"));
+});
+
+test("worker evidence not declared fails closed", async () => {
+  const proof = await buildProof({
+    status: status(), files, application, release,
+    workers: { network: "not-declared", description: "No worker evidence." },
+  });
+  assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "not-supported"));
+});
+
+test("proof verifies offline and tampering fails", async () => {
+  const proof = await buildProof({ status: status(), files, application, release, workers });
+  const parsed = JSON.parse(proofJson(proof));
+  assert.equal((await verifyProof(parsed)).valid, true);
+  parsed.body.seal.pageRequestsSinceSealing = 1;
+  assert.equal((await verifyProof(parsed)).valid, false);
+});
+
+test("one observed page request makes Control Answers unsupported", async () => {
+  const proof = await buildProof({ status: status({ requests: 1 }), files, application, release, workers });
+  assert.ok(proof.body.controlAnswers.answers.every((item) => item.result === "not-supported"));
+  assert.equal((await verifyProof(JSON.parse(proofJson(proof)))).checks.some((item) => item.name === "No page request after sealing" && !item.ok), true);
+});
+
+test("standalone bundle builds under 15 KB gzip", () => {
+  execFileSync(process.execPath, ["scripts/build-kit.mjs"]);
+  const bundle = readFileSync("public/neverheld/neverheld.min.js");
+  assert.ok(gzipSync(bundle, { level: 9 }).length < 15 * 1024);
+  assert.match(bundle.toString(), /NOPE/);
+  assert.match(bundle.toString(), /Neverheld/);
+});
+
+test("initial extraction version", () => assert.equal(SEAL_KIT_VERSION, "0.1.0"));
