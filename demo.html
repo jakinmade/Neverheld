@@ -4,14 +4,18 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Try NEVERHELD: a locked page in one minute</title>
 <style>
-:root{--ink:#14202b;--muted:#5a6878;--brand:#0f6b55;--soft:#eef6f3;--line:#dde5ec;--red:#b42318;--amber:#9a6700}
-*{box-sizing:border-box}body{margin:0;font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#f7fafb}
+@font-face{font-family:"Bricolage";src:url(/fonts/bricolage-grotesque-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Bricolage";src:url(/fonts/bricolage-grotesque-latin-600-normal.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Bricolage";src:url(/fonts/bricolage-grotesque-latin-800-normal.woff2) format("woff2");font-weight:800;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2");font-weight:600;font-display:swap}
+:root{--ink:#13233a;--muted:#46566b;--brand:#1e7f5c;--soft:#e3f2ec;--line:#d6dee7;--red:#c8372d;--amber:#b07d00}
+*{box-sizing:border-box}body{margin:0;font:18px/1.6 "Bricolage",system-ui,sans-serif;color:var(--ink);background:#fff}
 a{color:var(--brand)}
 .top{background:#fff;border-bottom:1px solid var(--line)}.top .in{max-width:1080px;margin:0 auto;padding:14px 22px;display:flex;justify-content:space-between;align-items:center}
-.logo{font-weight:800;letter-spacing:.08em;text-decoration:none;color:var(--ink)}.logo span{color:var(--brand)}
+.logo{font-weight:800;font-size:22px;text-decoration:none;color:var(--ink)}.logo span{color:var(--ink)}.logo::before{content:"";display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--brand);margin-right:8px}
 main{max-width:1080px;margin:0 auto;padding:28px 22px;display:grid;grid-template-columns:1.1fr .9fr;gap:24px}
 @media(max-width:860px){main{grid-template-columns:1fr}}
-h1{font-size:clamp(26px,3.4vw,34px);margin:0 0 6px}.sub{color:var(--muted);margin:0 0 18px}
+h1{font-size:clamp(30px,4vw,44px);line-height:1.05;letter-spacing:-.02em;font-weight:800;margin:0 0 10px}.sub{color:var(--muted);margin:0 0 18px}
 .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px}
 label{display:block;font-weight:600;margin:14px 0 6px}
 input[type=text],textarea{width:100%;padding:12px;font:inherit;border:1px solid #b8c4ce;border-radius:10px}
@@ -20,13 +24,13 @@ input[type=text],textarea{width:100%;padding:12px;font:inherit;border:1px solid 
 .dot{width:14px;height:14px;border-radius:50%;background:var(--amber)}.locked .dot{background:var(--brand)}.failed .dot{background:var(--red)}
 .counters{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
 .counter{background:var(--soft);border-radius:12px;padding:14px;text-align:center}
-.counter b{display:block;font-size:42px;line-height:1.1}.counter span{font-size:14px;color:var(--muted)}
+.counter b{display:block;font:600 48px/1.1 "Plex Mono",monospace}.counter span{font-size:14px;color:var(--muted)}
 .counter.blocked{background:#fff4e5}
 ol.checklist{padding-left:0;list-style:none;margin:0 0 16px}
 ol.checklist li{padding:8px 0 8px 34px;position:relative;border-bottom:1px solid var(--line)}
 ol.checklist li::before{content:attr(data-n);position:absolute;left:0;top:7px;width:24px;height:24px;border-radius:50%;background:#e6eef5;color:#33465a;font-size:13px;font-weight:700;display:grid;place-items:center}
 ol.checklist li.done::before{content:"✓";background:var(--brand);color:#fff}
-button{font:inherit;font-weight:700;padding:12px 16px;border-radius:10px;border:0;background:var(--brand);color:#fff;cursor:pointer;width:100%;margin-top:6px}
+button{font:inherit;font-weight:600;padding:14px 16px;border-radius:999px;border:0;background:var(--brand);color:#fff;cursor:pointer;width:100%;margin-top:6px}
 button:disabled{background:#a9b7c2;cursor:not-allowed}
 .result{margin-top:12px;padding:12px;border-radius:10px;background:var(--soft);display:none}
 .result.show{display:block}.result.bad{background:#fdecea}

@@ -2,255 +2,245 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NEVERHELD: private stays private, and you get the receipt</title>
-<meta name="description" content="NEVERHELD locks a web page so it cannot send what you type, then gives you a receipt you can check yourself.">
+<title>NEVERHELD: type it here, it stays here</title>
+<meta name="description" content="NEVERHELD locks a web page so hidden trackers can't send what you type, then gives you a receipt you can check.">
 <style>
-:root{--ink:#14202b;--muted:#5a6878;--brand:#0f6b55;--brand-dark:#0a4d3d;--soft:#eef6f3;--line:#dde5ec;--warm:#fff8ec}
+@font-face{font-family:"Bricolage";src:url(/fonts/bricolage-grotesque-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Bricolage";src:url(/fonts/bricolage-grotesque-latin-600-normal.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Bricolage";src:url(/fonts/bricolage-grotesque-latin-800-normal.woff2) format("woff2");font-weight:800;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url(/fonts/ibm-plex-mono-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Caveat";src:url(/fonts/caveat-latin-500-normal.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Caveat";src:url(/fonts/caveat-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+:root{--ink:#13233a;--ink2:#46566b;--paper:#fff;--mist:#eef2f6;--line:#d6dee7;--safe:#1e7f5c;--safe-soft:#e3f2ec;--stop:#c8372d;--stop-soft:#fbe9e7}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
-body{margin:0;font:17px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#fff}
-a{color:var(--brand)}
-.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
-nav{position:sticky;top:0;background:rgba(255,255,255,.94);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);z-index:5}
-nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
-.logo{font-weight:800;letter-spacing:.08em;color:var(--ink);text-decoration:none}
-.logo span{color:var(--brand)}
-nav .links a{margin-left:20px;text-decoration:none;color:var(--muted);font-size:15px}
-nav .links a.cta{color:#fff;background:var(--brand);padding:8px 14px;border-radius:8px}
-@media(max-width:720px){nav .links a:not(.cta){display:none}}
-.hero{padding:72px 0 56px;background:linear-gradient(180deg,var(--soft),#fff)}
-.hero h1{font-size:clamp(34px,5.4vw,56px);line-height:1.08;margin:0 0 18px;max-width:820px}
-.hero p.lead{font-size:clamp(18px,2.2vw,22px);color:var(--muted);max-width:700px;margin:0 0 28px}
-.btn{display:inline-block;padding:14px 22px;border-radius:10px;font-weight:700;text-decoration:none;margin:0 10px 10px 0}
-.btn.primary{background:var(--brand);color:#fff}.btn.primary:hover{background:var(--brand-dark)}
-.btn.ghost{border:2px solid var(--brand);color:var(--brand)}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:44px 0 0}
-@media(max-width:820px){.steps{grid-template-columns:1fr}}
-.step{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px}
-.step .n{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--brand);color:#fff;font-weight:800;margin-bottom:8px}
-.step h3{margin:4px 0 6px;font-size:20px}.step p{margin:0;color:var(--muted)}
-section{padding:64px 0;border-top:1px solid var(--line)}
-section h2{font-size:clamp(28px,3.6vw,38px);margin:0 0 10px}
-section .intro{color:var(--muted);max-width:720px;margin:0 0 30px}
-.story{display:grid;grid-template-columns:1fr 1fr;gap:22px}
-@media(max-width:820px){.story{grid-template-columns:1fr}}
-.box{border-radius:14px;padding:22px;border:1px solid var(--line)}
-.box.bad{background:var(--warm)}.box.good{background:var(--soft)}
-.box h3{margin:0 0 8px}
-.verticals{display:grid;gap:22px}
-.vertical{border:1px solid var(--line);border-radius:16px;padding:26px;scroll-margin-top:80px}
-.vertical header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-.vertical h3{margin:0;font-size:24px}
-.badge{font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--brand);color:#fff}
-.badge.alt{background:#e6eef5;color:#33465a}
-.sub{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-@media(max-width:820px){.sub{grid-template-columns:1fr}}
-.sub div{background:#fafcfd;border:1px solid var(--line);border-radius:12px;padding:16px}
-.sub h4{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--brand)}
-.sub p{margin:0;font-size:16px}
-.jump{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 28px}
-.jump a{font-size:15px;text-decoration:none;border:1px solid var(--line);padding:7px 12px;border-radius:999px;color:var(--ink)}
-.jump a:hover{border-color:var(--brand);color:var(--brand)}
-pre{background:#0f1c26;color:#d8f3e8;padding:18px;border-radius:12px;overflow:auto;font-size:14px}
-.honest li{margin:6px 0}
-.sketch{margin:36px 0 8px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px 14px 6px}.sketch svg{width:100%;height:auto;display:block}.sketch figcaption{text-align:center;color:var(--muted);font-size:15px;padding:6px 0 8px}
-.copybox{display:flex;gap:10px;align-items:stretch;background:#0f1c26;border-radius:12px;padding:12px;margin:0 0 18px}.copybox code{flex:1;color:#d8f3e8;font-size:14px;overflow-x:auto;white-space:nowrap;align-self:center}.copybox button{font:inherit;font-weight:700;background:var(--brand);color:#fff;border:0;border-radius:8px;padding:10px 18px;cursor:pointer}.easy li{margin:6px 0}.note{color:var(--muted);font-size:15px}
-footer{padding:36px 0;border-top:1px solid var(--line);color:var(--muted);font-size:15px}
+body{margin:0;font:18px/1.6 "Bricolage",system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+a{color:var(--safe)}:focus-visible{outline:3px solid var(--safe);outline-offset:3px;border-radius:4px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+h1,h2,h3{font-weight:800;line-height:1.05;letter-spacing:-.02em;margin:0}
+/* nav */
+.nav{display:flex;justify-content:space-between;align-items:center;padding:20px 0}
+.brand{font-weight:800;font-size:22px;text-decoration:none;color:var(--ink);letter-spacing:-.01em}
+.brand i{font-style:normal;display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--safe);margin-right:8px;vertical-align:1px}
+.nav nav a{margin-left:26px;color:var(--ink2);text-decoration:none;font-size:16px}
+.nav nav a.try{color:#fff;background:var(--ink);padding:10px 16px;border-radius:999px}
+@media(max-width:760px){.nav nav a:not(.try){display:none}}
+/* hero */
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center;padding:40px 0 80px}
+@media(max-width:900px){.hero{grid-template-columns:1fr;gap:36px;padding:20px 0 56px}}
+.hero h1{font-size:clamp(48px,7.4vw,92px)}
+.hero p{font-size:clamp(19px,2.1vw,22px);color:var(--ink2);max-width:30em;margin:24px 0 32px}
+.btn{display:inline-block;font-weight:600;font-size:18px;padding:15px 24px;border-radius:999px;text-decoration:none;margin:0 12px 12px 0}
+.btn.go{background:var(--safe);color:#fff}.btn.go:hover{background:#17694b}
+.btn.quiet{color:var(--ink);border:2px solid var(--line)}
+/* the receipt */
+.receipt{font-family:"Plex Mono",monospace;font-size:15px;background:#fff;border:1px solid var(--line);border-bottom:0;padding:26px 26px 18px;max-width:360px;margin:0 auto;position:relative;transform:rotate(1.5deg);box-shadow:0 30px 60px -30px rgba(19,35,58,.35)}
+.receipt::after{content:"";position:absolute;left:-1px;right:-1px;bottom:-14px;height:14px;background:linear-gradient(135deg,#fff 50%,transparent 50%) 0 0/14px 14px,linear-gradient(225deg,#fff 50%,transparent 50%) 0 0/14px 14px}
+.receipt h3{font-family:"Plex Mono",monospace;font-size:15px;letter-spacing:.12em;text-align:center;margin-bottom:4px}
+.receipt .meta{text-align:center;color:var(--ink2);font-size:13px;margin-bottom:14px}
+.receipt .row{display:flex;justify-content:space-between;padding:6px 0;border-top:1px dashed var(--line)}
+.receipt .row b{font-weight:600}.receipt .zero{color:var(--safe)}.receipt .blk{color:var(--stop)}
+.receipt .ok{margin-top:14px;text-align:center;font-weight:600;color:var(--safe);border:2px solid var(--safe);border-radius:6px;padding:6px;transform:rotate(-2deg)}
+.receipt .line{opacity:0;animation:print .35s ease-out forwards}
+@keyframes print{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.receipt .line{animation:none;opacity:1}}
+/* sections */
+section{padding:88px 0;border-top:1px solid var(--line)}
+section h2{font-size:clamp(34px,4.6vw,54px);max-width:16em}
+section .lede{color:var(--ink2);font-size:20px;max-width:34em;margin:16px 0 44px}
+/* storyboard */
+.story{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+@media(max-width:900px){.story{grid-template-columns:1fr;max-width:460px}}
+.panel svg{width:100%;height:auto;display:block;background:var(--mist);border-radius:18px}
+.panel .cap{display:flex;gap:12px;align-items:baseline;margin-top:16px}
+.panel .num{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800}
+.panel p{margin:0;font-size:20px;font-weight:600;line-height:1.3}
+.panel small{display:block;font-weight:400;color:var(--ink2);font-size:16px;margin-top:4px}
+.hand{font-family:"Caveat",cursive}
+/* verticals */
+.tabs{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:28px}
+@media(max-width:760px){.tabs{flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px}}
+.tabs button{font:inherit;font-size:17px;font-weight:600;white-space:nowrap;cursor:pointer;padding:10px 18px;border-radius:999px;border:2px solid var(--line);background:#fff;color:var(--ink)}
+.tabs button[aria-selected=true]{background:var(--ink);border-color:var(--ink);color:#fff}
+.vpanel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:2px solid var(--ink);border-radius:20px;overflow:hidden}
+@media(max-width:900px){.vpanel{grid-template-columns:1fr}}
+.vpanel div{padding:28px}
+.vpanel div+div{border-left:2px solid var(--ink)}
+@media(max-width:900px){.vpanel div+div{border-left:0;border-top:2px solid var(--ink)}}
+.vpanel h3{font-size:22px;margin-bottom:10px}
+.vpanel p{margin:0;font-size:18px;color:var(--ink2)}
+.vpanel .prob{background:var(--stop-soft)}.vpanel .fix{background:var(--safe-soft)}
+.fit{margin-top:14px;color:var(--ink2);font-size:16px}
+/* companies */
+.paste{display:flex;gap:10px;align-items:center;background:var(--ink);border-radius:16px;padding:14px 14px 14px 22px;max-width:860px}
+.paste code{flex:1;color:#cfeee2;font:15px "Plex Mono",monospace;overflow-x:auto;white-space:nowrap}
+.paste button{font:inherit;font-weight:600;background:var(--safe);color:#fff;border:0;border-radius:999px;padding:11px 20px;cursor:pointer}
+.how3{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:860px;margin:28px 0 30px;padding:0;list-style:none;counter-reset:s}
+@media(max-width:760px){.how3{grid-template-columns:1fr}}
+.how3 li{counter-increment:s;font-size:18px}.how3 li::before{content:counter(s);font-weight:800;font-size:40px;display:block;line-height:1;color:var(--safe);margin-bottom:6px}
+.small{color:var(--ink2);font-size:16px;max-width:46em}
+/* honesty */
+.sure{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+@media(max-width:900px){.sure{grid-template-columns:1fr}}
+.sure h3{font-size:22px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.sure h3 span{width:14px;height:14px;border-radius:50%;flex:none}
+.sure p{margin:0;color:var(--ink2)}
+footer{padding:36px 0 48px;border-top:1px solid var(--line);color:var(--ink2);font-size:16px}
+footer a{margin-right:18px}
 </style>
 </head>
 <body>
-<nav><div class="wrap"><a class="logo" href="#">NEVER<span>HELD</span></a>
-<div class="links"><a href="#how">How it works</a><a href="#who">Who it's for</a><a href="#buyers">For companies</a><a class="cta" href="/demo.html">Try it (1 min)</a></div></div></nav>
+<div class="wrap">
+<header class="nav"><a class="brand" href="/"><i></i>NEVERHELD</a>
+<nav><a href="#how">How it works</a><a href="#where">Where it matters</a><a href="#companies">For companies</a><a class="try" href="/demo.html">Try it</a></nav></header>
 
-<header class="hero"><div class="wrap">
-<h1>Private stays private, and you get the receipt.</h1>
-<p class="lead">NEVERHELD locks a web page so it can't send what you type to anyone. Then it gives you a receipt you can check yourself, without having to trust the company.</p>
-<a class="btn primary" href="/demo.html">Try it now: no sign-up</a><a class="btn ghost" href="#how">How it works</a>
-<figure class="sketch" aria-label="Sketch: a hidden tracker tries to send what you type, the NEVERHELD lock stops it, and you get a receipt">
-<svg viewBox="0 0 960 470" xmlns="http://www.w3.org/2000/svg" role="img">
-<defs>
-<filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="3.2"/></filter>
-<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10" fill="none" stroke="#14202b" stroke-width="1.8"/></marker>
-</defs>
-<style>
-.s{fill:none;stroke:#14202b;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
-.hand{font-family:"Segoe Print","Bradley Hand","Comic Sans MS","Chalkboard SE",cursive;fill:#14202b}
-.big{font-size:22px}.mid{font-size:17px}.small{font-size:14px}
-.green{stroke:#0f6b55}.red{stroke:#b42318}.fillg{fill:#0f6b55}.fillr{fill:#b42318}
-</style>
-<g filter="url(#rough)">
-<!-- person -->
-<circle class="s" cx="70" cy="190" r="22"/>
-<path class="s" d="M70 212 L70 290 M70 235 L112 255 M70 235 L40 262 M70 290 L48 340 M70 290 L94 340"/>
-<path class="s" d="M60 186 h4 M76 186 h4 M62 198 q8 6 16 0"/>
-<text class="hand small" x="22" y="370">you</text>
+<div class="hero">
+<div>
+<h1>Type it here.<br>It stays here.</h1>
+<p>Most websites carry hidden trackers that can copy what you type. NEVERHELD locks the page so they can't send it anywhere, then gives you a receipt that proves what happened.</p>
+<a class="btn go" href="/demo.html">Try it in one minute</a><a class="btn quiet" href="#how">See how it works</a>
+</div>
+<div class="receipt" aria-label="Example receipt: sent out 0, blocked 2, checks out">
+<h3 class="line" style="animation-delay:.2s">NEVERHELD RECEIPT</h3>
+<div class="meta line" style="animation-delay:.4s">clinic intake form · today 09:41</div>
+<div class="row line" style="animation-delay:.7s"><span>Page locked</span><b class="zero">yes</b></div>
+<div class="row line" style="animation-delay:1s"><span>What you typed</span><b class="zero">stayed here</b></div>
+<div class="row line" style="animation-delay:1.3s"><span>Sent out</span><b class="zero">0</b></div>
+<div class="row line" style="animation-delay:1.6s"><span>Blocked (ad tracker)</span><b class="blk">2</b></div>
+<div class="row line" style="animation-delay:1.9s"><span>Files</span><b>fingerprint only</b></div>
+<div class="ok line" style="animation-delay:2.3s">✓ CHECKS OUT</div>
+</div>
+</div>
+</div>
 
-<!-- browser window -->
-<rect class="s" x="140" y="70" width="470" height="300" rx="14" fill="#fff"/>
-<path class="s" d="M140 108 H610"/>
-<circle class="s" cx="164" cy="89" r="5"/><circle class="s" cx="182" cy="89" r="5"/><circle class="s" cx="200" cy="89" r="5"/>
-<text class="hand small" x="232" y="94">clinic-website.com / symptoms</text>
-<!-- padlock in title bar -->
-<rect class="s green" x="572" y="84" width="18" height="15" rx="3"/><path class="s green" d="M575 84 v-5 a6 6 0 0 1 12 0 v5"/>
+<section id="how"><div class="wrap">
+<h2>How it works, in three pictures</h2>
+<p class="lede">It happens inside your own web browser. Nothing is sent to us either.</p>
+<div class="story">
 
-<!-- form -->
-<text class="hand mid" x="168" y="146">What brings you in today?</text>
-<rect class="s" x="166" y="158" width="270" height="62" rx="8"/>
-<text class="hand mid" x="180" y="196">chest pain since Tuesday…</text>
-<path class="s" d="M112 255 Q140 230 166 205" marker-end="url(#arrow)"/>
-<text class="hand small" x="14" y="128">types something</text>
-<text class="hand small" x="34" y="146">private</text>
-
-<!-- tracker gremlin -->
-<path class="s red" d="M470 250 l10 -16 l8 14 l12 -12 l4 16 l16 -6 l-4 18 l14 8 l-14 8 l6 16 l-16 -4 l-4 16 l-12 -12 l-8 14 l-10 -16 l-14 6 l2 -16 l-14 -8 l14 -8 l-2 -16 z" fill="#fde8e6"/>
-<circle cx="485" cy="272" r="4" class="fillr"/><circle cx="503" cy="272" r="4" class="fillr"/>
-<path class="s red" d="M484 288 q10 -7 20 0"/>
-<text class="hand small" x="420" y="338">hidden ad tracker</text>
-<path class="s red" d="M436 214 Q470 230 480 240" marker-end="url(#arrow)"/>
-<text class="hand small" x="392" y="268">grabs it…</text>
-
-<!-- envelope thrown -->
-<rect class="s red" x="560" y="225" width="44" height="30" rx="3" fill="#fff"/><path class="s red" d="M560 225 l22 16 l22 -16"/>
-<path class="s red" d="M528 262 Q545 240 558 240" marker-end="url(#arrow)"/>
-<text class="hand small" x="508" y="206">…and throws it</text>
-
-<!-- the lock wall -->
-<path class="s green" d="M640 60 V390" stroke-width="7"/>
-<path class="s green" d="M626 80 h28 M626 120 h28 M626 160 h28 M626 200 h28 M626 240 h28 M626 280 h28 M626 320 h28 M626 360 h28"/>
-<rect class="s green" x="618" y="16" width="44" height="34" rx="6" fill="#eef6f3"/><path class="s green" d="M626 16 v-8 a14 14 0 0 1 28 0 v8"/>
-<text class="hand mid" x="590" y="420" style="fill:#0f6b55">the NEVERHELD lock</text>
-
-<!-- bounce + NOPE -->
-<path class="s red" d="M606 240 Q626 232 612 262" marker-end="url(#arrow)"/>
-<path class="s red" d="M672 196 l14 -20 l8 18 l20 -12 l-4 22 l24 4 l-20 12 l14 18 l-24 -4 l-2 22 l-14 -18 l-14 16 l-2 -22 l-22 2 l16 -16 l-18 -12 l22 -2 z" fill="#fff4e5"/>
-<text class="hand big" x="676" y="226" style="fill:#b42318;font-weight:700">NOPE!</text>
-
-<!-- ad company -->
-<path class="s" d="M800 170 q-10 -40 30 -40 q14 -30 50 -12 q40 -6 40 30 q30 10 10 40 q0 28 -36 22 q-24 22 -56 4 q-44 6 -38 -44 z" fill="#f4f6f8"/>
-<text class="hand mid" x="816" y="168">ad company</text>
-<text class="hand big" x="852" y="198">?</text>
-<text class="hand small" x="790" y="244">gets nothing</text>
-
-<!-- receipt -->
-<path class="s green" d="M250 372 v52 l12 -8 l12 8 l12 -8 l12 8 l12 -8 l12 8 l12 -8 l12 8 l12 -8 l12 8 l12 -8 l12 8 v-52" fill="#fff"/>
-<text class="hand small" x="262" y="392" style="font-weight:700">RECEIPT ✓</text>
-<text class="hand small" x="262" y="410">sent: 0 · blocked: 1</text>
-<path class="s green" d="M246 396 Q170 400 100 352" marker-end="url(#arrow)"/>
-<text class="hand small" x="112" y="420" style="fill:#0f6b55">you keep the receipt</text>
-<text class="hand small" x="112" y="438" style="fill:#0f6b55">and can check it yourself</text>
-
-<!-- step numbers -->
-<circle cx="640" cy="440" r="0"/>
-</g>
+<figure class="panel" style="margin:0">
+<svg viewBox="0 0 340 260" role="img" aria-label="A person types chest pain since Tuesday into a website form">
+<rect x="24" y="24" width="292" height="200" rx="14" fill="#fff" stroke="#13233a" stroke-width="3"/>
+<path d="M24 54 H316" stroke="#13233a" stroke-width="3"/>
+<circle cx="44" cy="39" r="5" fill="#13233a"/><circle cx="60" cy="39" r="5" fill="#13233a"/><circle cx="76" cy="39" r="5" fill="#13233a"/>
+<text x="48" y="92" class="hand" font-size="22" fill="#46566b">What brings you in today?</text>
+<rect x="46" y="104" width="248" height="54" rx="8" fill="#fff" stroke="#13233a" stroke-width="2.5"/>
+<text x="60" y="140" class="hand" font-size="27" font-weight="700" fill="#13233a">chest pain since Tue…</text>
+<path d="M268 186 l26 26 l-10 2 l8 14 l-6 3 l-8 -14 l-8 7 z" fill="#13233a"/>
+<text x="48" y="200" class="hand" font-size="20" fill="#46566b">private stuff</text>
 </svg>
-<figcaption>1. The page is locked. &nbsp; 2. Anything that tries to send your data is refused and counted. &nbsp; 3. You get a receipt you can check.</figcaption>
+<figcaption class="cap"><span class="num">1</span><p>You type something private<small>Into any form: a clinic, a lawyer, a tax site.</small></p></figcaption>
 </figure>
 
-<div class="steps" id="how">
-<div class="step"><div class="n">1</div><h3>Lock</h3><p>When the page has loaded, NEVERHELD tells your browser: "this page may not send anything anywhere." The browser enforces it.</p></div>
-<div class="step"><div class="n">2</div><h3>Count</h3><p>If anything on the page tries to send your data, such as a hidden ad tracker, the browser refuses, and NEVERHELD counts the attempt where you can see it.</p></div>
-<div class="step"><div class="n">3</div><h3>Receipt</h3><p>You download a receipt of what happened. You can check it on any computer, even offline. If someone changes it, the check fails.</p></div>
-</div>
-</div></header>
+<figure class="panel" style="margin:0">
+<svg viewBox="0 0 340 260" role="img" aria-label="A hidden tracker throws the words at the edge of the page; the locked page blocks it">
+<rect x="24" y="24" width="292" height="200" rx="14" fill="#fff" stroke="#1e7f5c" stroke-width="7"/>
+<rect x="282" y="20" width="34" height="28" rx="6" fill="#1e7f5c"/><path d="M290 20 v-7 a9 9 0 0 1 18 0 v7" fill="none" stroke="#1e7f5c" stroke-width="5"/><circle cx="299" cy="34" r="4" fill="#fff"/>
+<text x="48" y="74" class="hand" font-size="22" fill="#9aa7b5">chest pain since Tue…</text>
+<path d="M70 176 l8 -14 l7 12 l10 -10 l3 14 l14 -5 l-3 15 l12 7 l-12 7 l5 14 l-14 -3 l-3 14 l-10 -10 l-7 12 l-8 -14 l-12 5 l2 -14 l-12 -7 l12 -7 l-2 -14 z" fill="#fbe9e7" stroke="#c8372d" stroke-width="2.5"/>
+<circle cx="80" cy="190" r="3.5" fill="#c8372d"/><circle cx="95" cy="190" r="3.5" fill="#c8372d"/><path d="M80 204 q8 -6 16 0" fill="none" stroke="#c8372d" stroke-width="2.5"/>
+<text x="52" y="248" class="hand" font-size="20" fill="#c8372d">hidden ad tracker</text>
+<path d="M118 172 Q190 110 262 118" fill="none" stroke="#c8372d" stroke-width="3" stroke-dasharray="7 6"/>
+<rect x="262" y="104" width="38" height="27" rx="3" fill="#fff" stroke="#c8372d" stroke-width="3"/><path d="M262 104 l19 14 l19 -14" fill="none" stroke="#c8372d" stroke-width="3"/>
+<path d="M300 92 l14 -14 M314 92 l-14 -14" stroke="#c8372d" stroke-width="5" stroke-linecap="round"/>
+<text x="196" y="170" class="hand" font-size="34" font-weight="700" fill="#c8372d" transform="rotate(-8 230 160)">BLOCKED</text>
+</svg>
+<figcaption class="cap"><span class="num">2</span><p>A hidden tracker tries to send it, and the lock says no<small>The browser refuses, and NEVERHELD counts the attempt.</small></p></figcaption>
+</figure>
 
-<section><div class="wrap">
-<h2>Why this matters</h2>
-<p class="intro">Most websites carry hidden "trackers" from ad and analytics companies. On a normal shop that's annoying. On a page where you describe your health, your money or a legal problem, it's a real leak, and companies are paying for it in court.</p>
-<div class="story">
-<div class="box bad"><h3>Without NEVERHELD</h3><p>You type "chest pain since Tuesday" into a hospital's form. A tracker on the page quietly sends it to an ad company. Nobody can prove afterwards what was or wasn't sent.</p></div>
-<div class="box good"><h3>With NEVERHELD</h3><p>The same form is locked. The tracker tries, the browser says no, and the counter shows it. The patient and the hospital both get a receipt of what the page did.</p></div>
+<figure class="panel" style="margin:0">
+<svg viewBox="0 0 340 260" role="img" aria-label="A receipt shows sent out 0, blocked 1, checks out">
+<path d="M104 22 H236 V214 l-11 9 l-11 -9 l-11 9 l-11 -9 l-11 9 l-11 -9 l-11 9 l-11 -9 l-11 9 l-11 -9 l-11 9 l-11 -9 z" fill="#fff" stroke="#13233a" stroke-width="3"/>
+<text x="170" y="52" text-anchor="middle" font-family="Plex Mono, monospace" font-size="13" font-weight="600" fill="#13233a">RECEIPT</text>
+<path d="M118 66 H222" stroke="#d6dee7" stroke-width="2" stroke-dasharray="4 4"/>
+<text x="118" y="92" font-family="Plex Mono, monospace" font-size="13" fill="#13233a">Sent out</text><text x="222" y="92" text-anchor="end" font-family="Plex Mono, monospace" font-size="15" font-weight="600" fill="#1e7f5c">0</text>
+<text x="118" y="120" font-family="Plex Mono, monospace" font-size="13" fill="#13233a">Blocked</text><text x="222" y="120" text-anchor="end" font-family="Plex Mono, monospace" font-size="15" font-weight="600" fill="#c8372d">1</text>
+<rect x="124" y="142" width="92" height="34" rx="6" fill="none" stroke="#1e7f5c" stroke-width="3" transform="rotate(-6 170 159)"/>
+<text x="170" y="165" text-anchor="middle" font-family="Plex Mono, monospace" font-size="14" font-weight="600" fill="#1e7f5c" transform="rotate(-6 170 159)">✓ CHECKS OUT</text>
+<circle cx="262" cy="176" r="26" fill="none" stroke="#13233a" stroke-width="5"/><path d="M281 195 l24 24" stroke="#13233a" stroke-width="8" stroke-linecap="round"/>
+<text x="250" y="112" class="hand" font-size="20" fill="#46566b">check it</text>
+<text x="250" y="130" class="hand" font-size="20" fill="#46566b">yourself</text>
+</svg>
+<figcaption class="cap"><span class="num">3</span><p>You get a receipt you can check<small>On any computer, even offline. Change one letter and the check fails.</small></p></figcaption>
+</figure>
+
 </div>
 </div></section>
 
-<section id="who"><div class="wrap">
-<h2>Who it's for</h2>
-<p class="intro">Any web page where people type or upload something private. These are the areas where it matters most.</p>
-<div class="jump">
-<a href="#health">Healthcare</a><a href="#mental">Mental health</a><a href="#legal">Legal</a><a href="#finance">Money &amp; tax</a><a href="#hr">Hiring &amp; HR</a><a href="#docs">Document tools</a><a href="#trust">Security reviews</a>
-</div>
-<div class="verticals">
+<section id="where"><div class="wrap">
+<h2>Where it matters most</h2>
+<p class="lede">Anywhere people type or upload something they'd hate to see shared. Pick an area.</p>
+<div class="tabs" role="tablist" id="tabs"></div>
+<div class="vpanel" role="tabpanel" id="vpanel" aria-live="polite"></div>
+<p class="fit" id="fit"></p>
+</div></section>
 
-<article class="vertical" id="health"><header><h3>Healthcare</h3><span class="badge">Biggest need</span></header>
-<div class="sub">
-<div><h4>The problem</h4><p>Hospitals and clinics have paid out more than $100 million in recent years over trackers on their websites that sent patient searches and form entries to ad companies.</p></div>
-<div><h4>What NEVERHELD does</h4><p>It locks symptom checkers, booking forms and "find a doctor" pages, so trackers can't send what patients type, and it gives each visit a receipt the provider's lawyers can use.</p></div>
-<div><h4>Example</h4><p>A clinic's intake form shows "Blocked: 2" when the old ad tracker tries to send the patient's answers, and the receipt is saved with the record.</p></div>
-</div></article>
-
-<article class="vertical" id="mental"><header><h3>Mental health</h3><span class="badge">High need</span></header>
-<div class="sub">
-<div><h4>The problem</h4><p>Therapy sign-ups and mood check-ins hold some of the most sensitive things people ever write down, and several online therapy firms have been in trouble for sharing that data.</p></div>
-<div><h4>What NEVERHELD does</h4><p>It locks the sign-up and check-in pages and gives the app evidence for its promise: "we don't share what you tell us."</p></div>
-<div><h4>Example</h4><p>A therapy app shows users a "locked page" badge and lets them download the receipt for their own records.</p></div>
-</div></article>
-
-<article class="vertical" id="legal"><header><h3>Legal</h3><span class="badge">High need</span></header>
-<div class="sub">
-<div><h4>The problem</h4><p>Lawyers must judge whether client information reaches a third party or an AI service when they use online tools. Usually they have to take the tool's word for it.</p></div>
-<div><h4>What NEVERHELD does</h4><p>It locks the page where case documents are reviewed and gives a receipt per matter showing what that page did.</p></div>
-<div><h4>Example</h4><p>A barrister prepares a court bundle in a locked page and keeps the receipt in the case file.</p></div>
-</div></article>
-
-<article class="vertical" id="finance"><header><h3>Money &amp; tax</h3><span class="badge alt">Good fit</span></header>
-<div class="sub">
-<div><h4>The problem</h4><p>People type income, debts and tax details into calculators and filing tools, and some of those sites have been caught passing the details to ad platforms.</p></div>
-<div><h4>What NEVERHELD does</h4><p>It locks the calculator or form so the figures stay on the page, and the receipt becomes a trust signal for customers.</p></div>
-<div><h4>Example</h4><p>A mortgage calculator says "Your numbers never leave this page. Check the receipt."</p></div>
-</div></article>
-
-<article class="vertical" id="hr"><header><h3>Hiring &amp; HR</h3><span class="badge alt">Good fit</span></header>
-<div class="sub">
-<div><h4>The problem</h4><p>CV checkers, salary tools and right-to-work checks handle personal documents that candidates never expected to be shared.</p></div>
-<div><h4>What NEVERHELD does</h4><p>It locks the upload and review pages. Each file is fingerprinted in the browser (never uploaded), and the receipt lists it.</p></div>
-<div><h4>Example</h4><p>A candidate checks their CV in a locked page and gets a receipt showing the file was only processed in their own browser.</p></div>
-</div></article>
-
-<article class="vertical" id="docs"><header><h3>Document tools</h3><span class="badge alt">Good fit</span></header>
-<div class="sub">
-<div><h4>The problem</h4><p>Many PDF editors, converters and redaction tools say "processed in your browser". Users have to believe them.</p></div>
-<div><h4>What NEVERHELD does</h4><p>It turns that claim into something a user can check: the page is locked, and the receipt shows what it did.</p></div>
-<div><h4>Example</h4><p>A redaction tool adds a "Check it yourself" button next to its privacy promise.</p></div>
-</div></article>
-
-<article class="vertical" id="trust"><header><h3>Security reviews</h3><span class="badge alt">Channel</span></header>
-<div class="sub">
-<div><h4>The problem</h4><p>"Do you access customer data?" is the most-asked question in security questionnaires. The usual answer is a policy document.</p></div>
-<div><h4>What NEVERHELD does</h4><p>It gives vendors evidence per session, with answers already written for the questions reviewers ask (HIPAA, SOC 2, vendor questionnaires and more).</p></div>
-<div><h4>Example</h4><p>A trust-centre platform shows NEVERHELD receipts alongside its customer's security answers.</p></div>
-</div></article>
-
-</div></div></section>
-
-<section id="buyers"><div class="wrap">
-<h2>For companies: try it on your own page in 30 seconds</h2>
-<p class="intro">Nothing to download and nothing to install. Copy one line, paste it at the end of the page you want to lock, and reload. That's it.</p>
-<div class="copybox"><code id="snippet">&lt;script src="https://neverheld-demo-production.up.railway.app/neverheld.min.js" data-auto-seal data-workers-network="none"&gt;&lt;/script&gt;</code><button id="copy" type="button">Copy</button></div>
-<ol class="easy">
-<li><b>Copy</b> the line above.</li>
-<li><b>Paste</b> it just before <code>&lt;/body&gt;</code> on any page with a form.</li>
-<li><b>Reload</b> the page. You'll see the NEVERHELD counter in the top right, and a "Proof and checks" button.</li>
-</ol>
-<p class="note">Works with plain HTML and Next.js. Tested in Chrome, Firefox and Safari's engine. For live use you get the same single file (about 13 KB) to host yourself, so your page doesn't depend on us.</p>
-<p><a class="btn primary" href="mailto:john@akinmade.co.uk?subject=NEVERHELD%20pilot">Talk to John about a pilot</a><a class="btn ghost" href="/download/neverheld-0.3.2.zip">Download the full pack (.zip)</a></p>
+<section id="companies"><div class="wrap">
+<h2>Try it on your own page in 30 seconds</h2>
+<p class="lede">Nothing to download, nothing to install.</p>
+<div class="paste"><code id="snippet">&lt;script src="https://neverheld-demo-production.up.railway.app/neverheld.min.js" data-auto-seal data-workers-network="none"&gt;&lt;/script&gt;</code><button id="copy" type="button">Copy</button></div>
+<ol class="how3"><li>Copy the line above.</li><li>Paste it just before the end of any page with a form.</li><li>Reload. The page locks and shows the NEVERHELD counter.</li></ol>
+<p class="small">Works with plain HTML and Next.js, tested in Chrome, Firefox and Safari's engine. For live use you host the same single 13 KB file yourself, so your page never depends on us.</p>
+<p><a class="btn go" href="mailto:john@akinmade.co.uk?subject=NEVERHELD%20pilot">Talk to John about a pilot</a><a class="btn quiet" href="/download/neverheld-0.3.2.zip">Download the full pack (.zip)</a></p>
 </div></section>
 
 <section><div class="wrap">
-<h2>How sure is this?</h2>
-<p class="intro">We would rather be exact than oversell it.</p>
-<ul class="honest">
-<li><strong>Enforced by the browser:</strong> once locked, the page's normal ways of sending data (forms, uploads, background requests, trackers, images, scripts) are refused.</li>
-<li><strong>Also blocked by NEVERHELD itself:</strong> WebRTC and network "hints". This is done by the page, so determined code could get round it.</li>
-<li><strong>Not covered:</strong> browser extensions, other tabs, anything before the lock, opening a new window, a WebRTC route through hidden frames, and a Safari quirk with preconnect hints.</li>
-<li><strong>The receipt</strong> is written by the page itself. It is strong evidence, not a signed record or an independent audit. Three review rounds have been done and published; an independent audit has not.</li>
-</ul>
+<h2>How sure can you be?</h2>
+<p class="lede">Exactly as sure as this, and no more.</p>
+<div class="sure">
+<div><h3><span style="background:var(--safe)"></span>Locked by your browser</h3><p>Once the page is locked, its ordinary ways of sending data are refused: forms, uploads, background requests, tracking images and scripts.</p></div>
+<div><h3><span style="background:#e0a100"></span>Blocked by NEVERHELD</h3><p>Video-call connections (WebRTC) and "get ready to connect" hints. The page does this itself, so code written to dodge it could get round it.</p></div>
+<div><h3><span style="background:var(--stop)"></span>Not covered</h3><p>Browser extensions, other tabs, anything before the lock, new windows, and a couple of browser quirks. The receipt is written by the page itself: strong evidence, not an independent audit.</p></div>
+</div>
 </div></section>
 
-<footer><div class="wrap">NEVERHELD · evaluation build 0.3.2 · <a href="/demo.html">Try it</a> · <a href="/verify.html">Receipt checker</a> · <a href="mailto:john@akinmade.co.uk">john@akinmade.co.uk</a></div></footer>
+<footer><div class="wrap"><a href="/demo.html">Try it</a><a href="/verify.html">Receipt checker</a><a href="mailto:john@akinmade.co.uk">john@akinmade.co.uk</a><span>Evaluation build 0.3.2</span></div></footer>
+
 <script>
+var V = [
+ { t: "Healthcare", fit: "Biggest need: hospitals have paid out over $100 million over website trackers.",
+   p: "Hospitals and clinics have paid out more than $100 million over trackers that sent patient searches and form answers to ad companies.",
+   f: "Locks symptom checkers, booking forms and find-a-doctor pages, and gives every visit a receipt the provider's lawyers can use.",
+   e: "A clinic's intake form shows \"Blocked: 2\" when the old ad tracker tries to send a patient's answers." },
+ { t: "Mental health", fit: "High need: some of the most sensitive things people ever write down.",
+   p: "Therapy sign-ups and mood check-ins hold deeply personal details, and online therapy firms have been in trouble for sharing them.",
+   f: "Locks the sign-up and check-in pages and backs up the promise \"we don't share what you tell us\" with evidence.",
+   e: "A therapy app shows a \"locked page\" badge and lets users keep their own receipt." },
+ { t: "Legal", fit: "High need: lawyers have to judge where client information goes.",
+   p: "When lawyers use online tools, they must judge whether client information reaches a third party or an AI service, usually on the tool's word.",
+   f: "Locks the page where case documents are reviewed and gives a receipt for each matter.",
+   e: "A barrister prepares a court bundle in a locked page and files the receipt with the case." },
+ { t: "Money & tax", fit: "Good fit: income, debts and tax details.",
+   p: "People type income, debts and tax details into calculators and filing tools, and some sites have passed them to ad platforms.",
+   f: "Keeps the figures on the page and turns the receipt into a trust signal for customers.",
+   e: "A mortgage calculator says: your numbers never leave this page. Check the receipt." },
+ { t: "Hiring & HR", fit: "Good fit: personal documents candidates never meant to share.",
+   p: "CV checkers, salary tools and right-to-work checks handle personal documents.",
+   f: "Locks the upload page. Each file is fingerprinted in the browser, never uploaded, and listed on the receipt.",
+   e: "A candidate checks their CV and gets a receipt showing it never left their computer." },
+ { t: "Document tools", fit: "Good fit: turns a promise into something checkable.",
+   p: "PDF editors, converters and redaction tools often say \"processed in your browser\", and users have to take their word for it.",
+   f: "Makes that claim checkable: the page is locked and the receipt shows what it did.",
+   e: "A redaction tool adds a \"check it yourself\" button next to its privacy promise." },
+ { t: "Security reviews", fit: "Channel: sold through trust-centre and compliance platforms.",
+   p: "\"Do you access customer data?\" is the most-asked question in security reviews. The usual answer is a policy document.",
+   f: "Gives vendors evidence for each session, with answers already written for HIPAA, SOC 2 and vendor questionnaires.",
+   e: "A trust-centre platform shows NEVERHELD receipts next to a customer's security answers." }
+];
+var tabs = document.getElementById("tabs"), panel = document.getElementById("vpanel"), fit = document.getElementById("fit");
+function show(i) {
+  [].forEach.call(tabs.children, function (b, j) { b.setAttribute("aria-selected", j === i); b.tabIndex = j === i ? 0 : -1; });
+  var v = V[i];
+  panel.innerHTML = '<div class="prob"><h3>The problem</h3><p></p></div><div class="fix"><h3>What NEVERHELD does</h3><p></p></div><div><h3>For example</h3><p></p></div>';
+  var ps = panel.querySelectorAll("p"); ps[0].textContent = v.p; ps[1].textContent = v.f; ps[2].textContent = v.e; fit.textContent = v.fit;
+}
+V.forEach(function (v, i) { var b = document.createElement("button"); b.type = "button"; b.role = "tab"; b.setAttribute("role", "tab"); b.textContent = v.t; b.onclick = function () { show(i); }; b.onkeydown = function (e) { if (e.key === "ArrowRight" || e.key === "ArrowLeft") { var n = (i + (e.key === "ArrowRight" ? 1 : V.length - 1)) % V.length; show(n); tabs.children[n].focus(); } }; tabs.appendChild(b); });
+show(0);
 document.getElementById("copy").addEventListener("click", function () {
   var text = document.getElementById("snippet").textContent, btn = this;
   var done = function () { btn.textContent = "Copied ✓"; setTimeout(function () { btn.textContent = "Copy"; }, 2000); };
-  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () { fallback(); }); else fallback();
-  function fallback() { var r = document.createRange(); r.selectNodeContents(document.getElementById("snippet")); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); document.execCommand("copy"); done(); }
+  function fallback() { var r = document.createRange(); r.selectNodeContents(document.getElementById("snippet")); var s = getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand("copy"); done(); }
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
 });
 </script>
 </body>

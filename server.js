@@ -3,7 +3,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const root = __dirname;
-const types = { ".html": "text/html; charset=utf-8", ".json": "application/json", ".js": "text/javascript; charset=utf-8", ".gz": "application/gzip", ".zip": "application/zip", ".sha256": "text/plain; charset=utf-8" };
+const types = { ".html": "text/html; charset=utf-8", ".json": "application/json", ".js": "text/javascript; charset=utf-8", ".gz": "application/gzip", ".zip": "application/zip", ".woff2": "font/woff2", ".sha256": "text/plain; charset=utf-8" };
 http.createServer((req, res) => {
   let url = decodeURIComponent((req.url || "/").split("?")[0]);
   if (url === "/") url = "/index.html";
